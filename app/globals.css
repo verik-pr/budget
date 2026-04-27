@@ -10,3 +10,15 @@ body {
   background-color: #f2f2f7;
   font-feature-settings: "tnum";
 }
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe {
+  padding-top: max(4rem, calc(1rem + env(safe-area-inset-top)));
+}

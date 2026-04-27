@@ -61,7 +61,7 @@ export default async function DashboardPage() {
   return (
     <div className="max-w-lg mx-auto">
       {/* Header */}
-      <div className="bg-black px-6 pt-16 pb-10">
+      <div className="bg-black px-6 pt-safe pb-10">
         <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-6">{monthLabel}</p>
         <p className="text-white text-5xl font-black tracking-tight tabular-nums">
           {formatCHF(balance)}

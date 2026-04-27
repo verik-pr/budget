@@ -63,7 +63,7 @@ export default function NewTransactionPage() {
 
   return (
     <div className="max-w-lg mx-auto min-h-screen bg-black">
-      <div className="px-6 pt-16 pb-6">
+      <div className="px-6 pt-safe pb-6">
         <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-6">Neue Buchung</p>
 
         {/* Type toggle */}

@@ -9,7 +9,7 @@ export default async function MehrPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-black px-6 pt-16 pb-8">
+      <div className="bg-black px-6 pt-safe pb-8">
         <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-4">Konto</p>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full flex items-center justify-center text-black font-black text-lg"

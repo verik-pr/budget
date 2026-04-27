@@ -56,7 +56,7 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      <div className="bg-black px-6 pt-16 pb-6 sticky top-0 z-10">
+      <div className="bg-black px-6 pt-safe pb-6 sticky top-0 z-10">
         <div className="flex items-center justify-between mb-4">
           <button onClick={prevMonth} className="text-zinc-400 hover:text-white transition-colors">
             <ChevronLeft className="w-5 h-5" />

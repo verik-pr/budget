@@ -27,7 +27,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col justify-end sm:justify-center sm:items-center">
+    <div className="min-h-screen bg-black flex flex-col justify-end sm:justify-center sm:items-center safe-top safe-bottom">
       <div className="w-full sm:max-w-sm">
         <div className="px-8 pb-10 pt-16 sm:pt-0">
           <p className="text-green-400 text-xs font-semibold tracking-widest uppercase mb-2">Budget</p>
