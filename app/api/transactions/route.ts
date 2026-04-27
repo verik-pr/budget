@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { date, amount, description, categoryId } = body
+  const { date, amount, description, categoryId, photoPath } = body
 
   if (!date || !amount || !categoryId) {
     return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
@@ -39,6 +39,7 @@ export async function POST(req: Request) {
       date: new Date(date),
       amount: parseFloat(amount),
       description: description || null,
+      photoPath: photoPath || null,
       categoryId,
       userId: session.user.id,
     },

@@ -11,14 +11,12 @@ async function applyRecurring() {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
   const rules = await prisma.recurringTransaction.findMany({ where: { active: true } })
-
   for (const rule of rules) {
     if (rule.dayOfMonth > today) continue
     const already = await prisma.transaction.findFirst({
       where: { recurringId: rule.id, date: { gte: start, lt: end } },
     })
     if (already) continue
-
     await prisma.transaction.create({
       data: {
         date: new Date(now.getFullYear(), now.getMonth(), rule.dayOfMonth),
@@ -38,16 +36,31 @@ export default async function DashboardPage() {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), 1)
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const lastStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastEnd = start
 
-  const transactions = await prisma.transaction.findMany({
-    where: { date: { gte: start, lt: end } },
-    include: { category: true, user: { select: { id: true, name: true, color: true } } },
-    orderBy: { date: "desc" },
-  })
+  const [transactions, lastMonth] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { date: { gte: start, lt: end } },
+      include: { category: true, user: { select: { id: true, name: true, color: true } } },
+      orderBy: { date: "desc" },
+    }),
+    prisma.transaction.findMany({
+      where: { date: { gte: lastStart, lt: lastEnd } },
+      include: { category: true },
+    }),
+  ])
 
   const income = transactions.filter(t => t.category.type === "income").reduce((s, t) => s + t.amount, 0)
   const expenses = transactions.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
   const balance = income - expenses
+
+  const lastIncome = lastMonth.filter(t => t.category.type === "income").reduce((s, t) => s + t.amount, 0)
+  const lastExpenses = lastMonth.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
+  const lastBalance = lastIncome - lastExpenses
+
+  const balanceDiff = lastBalance !== 0 ? Math.round(((balance - lastBalance) / Math.abs(lastBalance)) * 100) : null
+  const expenseDiff = lastExpenses !== 0 ? Math.round(((expenses - lastExpenses) / Math.abs(lastExpenses)) * 100) : null
 
   const monthLabel = now.toLocaleDateString("de-CH", { month: "long", year: "numeric" })
 
@@ -56,7 +69,14 @@ export default async function DashboardPage() {
       <div className="bg-gradient-to-br from-green-600 to-emerald-700 px-5 pt-14 pb-8">
         <p className="text-green-200 text-sm font-medium">{monthLabel}</p>
         <p className="text-white text-4xl font-bold mt-1">{formatCHF(balance)}</p>
-        <p className="text-green-200 text-sm mt-1">Bilanz diesen Monat</p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-green-200 text-sm">Bilanz diesen Monat</p>
+          {balanceDiff !== null && (
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${balanceDiff >= 0 ? "bg-green-500/40 text-green-100" : "bg-red-500/40 text-red-100"}`}>
+              {balanceDiff >= 0 ? "+" : ""}{balanceDiff}% vs. Vormonat
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 px-4 -mt-4">
@@ -73,6 +93,11 @@ export default async function DashboardPage() {
             <span className="text-xs font-medium text-gray-500">Ausgaben</span>
           </div>
           <p className="text-lg font-bold text-red-500">{formatCHF(expenses)}</p>
+          {expenseDiff !== null && (
+            <p className={`text-xs mt-0.5 ${expenseDiff <= 0 ? "text-green-500" : "text-red-400"}`}>
+              {expenseDiff >= 0 ? "+" : ""}{expenseDiff}% vs. Vormonat
+            </p>
+          )}
         </div>
       </div>
 
@@ -90,12 +115,8 @@ export default async function DashboardPage() {
                 <span className="text-2xl">{t.category.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {t.description || t.category.name}
-                    </p>
-                    {t.recurringId && (
-                      <span className="text-xs text-gray-300">↻</span>
-                    )}
+                    <p className="text-sm font-medium text-gray-900 truncate">{t.description || t.category.name}</p>
+                    {t.recurringId && <span className="text-xs text-gray-300">↻</span>}
                   </div>
                   <p className="text-xs text-gray-400">{formatDate(t.date)} · {t.user.name}</p>
                 </div>

@@ -18,13 +18,15 @@
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "lucide-react": "^0.447.0",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^9.0.8",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
     "typescript": "^5",

@@ -2,14 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, List, PlusCircle, RefreshCw, Settings } from "lucide-react"
+import { LayoutDashboard, List, PlusCircle, BarChart2, Settings } from "lucide-react"
 import clsx from "clsx"
 
 const links = [
   { href: "/dashboard", label: "Übersicht", icon: LayoutDashboard },
   { href: "/transactions", label: "Buchungen", icon: List },
   { href: "/transactions/new", label: "Neu", icon: PlusCircle },
-  { href: "/recurring", label: "Regeln", icon: RefreshCw },
+  { href: "/stats", label: "Statistik", icon: BarChart2 },
   { href: "/mehr", label: "Mehr", icon: Settings },
 ]
 
@@ -23,14 +23,11 @@ export function BottomNav() {
           const active = pathname === href || (pathname.startsWith(href) && href !== "/dashboard" && href !== "/mehr")
           const isNew = href === "/transactions/new"
           return (
-            <Link
-              key={href}
-              href={href}
+            <Link key={href} href={href}
               className={clsx(
                 "flex flex-col items-center gap-0.5 py-2 px-1 text-xs font-medium transition-colors",
                 isNew ? "text-green-600" : active ? "text-green-600" : "text-gray-400"
-              )}
-            >
+              )}>
               <Icon className="w-5 h-5" strokeWidth={isNew || active ? 2 : 1.5} />
               <span>{label}</span>
             </Link>

@@ -32,6 +32,7 @@ model Transaction {
   date        DateTime
   amount      Float
   description String?
+  photoPath   String?
   categoryId  String
   category    Category             @relation(fields: [categoryId], references: [id])
   userId      String
@@ -39,6 +40,15 @@ model Transaction {
   recurringId String?
   recurring   RecurringTransaction? @relation(fields: [recurringId], references: [id])
   createdAt   DateTime             @default(now())
+}
+
+model SavingsGoal {
+  id           String   @id @default(cuid())
+  name         String
+  icon         String   @default("🎯")
+  targetAmount Float
+  savedAmount  Float    @default(0)
+  createdAt    DateTime @default(now())
 }
 
 model RecurringTransaction {
