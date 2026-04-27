@@ -34,8 +34,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
   }
 
-  console.log("CREATE TX", { categoryId, userId: session.user.id, date, amount })
-
   const transaction = await prisma.transaction.create({
     data: {
       date: new Date(date),
