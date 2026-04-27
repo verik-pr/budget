@@ -4,8 +4,37 @@ import { prisma } from "@/lib/prisma"
 import { formatCHF, formatDate } from "@/lib/utils"
 import { TrendingUp, TrendingDown, Wallet } from "lucide-react"
 
+async function applyRecurring() {
+  const now = new Date()
+  const today = now.getDate()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+  const rules = await prisma.recurringTransaction.findMany({ where: { active: true } })
+
+  for (const rule of rules) {
+    if (rule.dayOfMonth > today) continue
+    const already = await prisma.transaction.findFirst({
+      where: { recurringId: rule.id, date: { gte: start, lt: end } },
+    })
+    if (already) continue
+
+    await prisma.transaction.create({
+      data: {
+        date: new Date(now.getFullYear(), now.getMonth(), rule.dayOfMonth),
+        amount: rule.amount,
+        description: rule.name,
+        categoryId: rule.categoryId,
+        userId: rule.userId,
+        recurringId: rule.id,
+      },
+    })
+  }
+}
+
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions)!
+  await applyRecurring()
+
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), 1)
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
@@ -60,9 +89,14 @@ export default async function DashboardPage() {
               <div key={t.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
                 <span className="text-2xl">{t.category.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {t.description || t.category.name}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {t.description || t.category.name}
+                    </p>
+                    {t.recurringId && (
+                      <span className="text-xs text-gray-300">↻</span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400">{formatDate(t.date)} · {t.user.name}</p>
                 </div>
                 <p className={`text-sm font-semibold tabular-nums ${t.category.type === "income" ? "text-green-600" : "text-red-500"}`}>
