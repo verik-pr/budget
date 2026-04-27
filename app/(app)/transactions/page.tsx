@@ -51,77 +51,81 @@ export default function TransactionsPage() {
   return (
     <div className="max-w-lg mx-auto">
       {lightbox && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
           <img src={`/api/photos/${lightbox}`} className="max-w-full max-h-full rounded-2xl" alt="" />
         </div>
       )}
 
-      <div className="bg-white border-b border-gray-100 px-4 pt-14 pb-3 sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={prevMonth} className="p-2 rounded-xl hover:bg-gray-100">
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
+      <div className="bg-black px-6 pt-16 pb-6 sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={prevMonth} className="text-zinc-400 hover:text-white transition-colors">
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="text-center">
-            <p className="font-semibold text-gray-900">{monthLabel}</p>
-            <p className="text-xs text-gray-400">
-              <span className="text-green-600">+{formatCHF(income)}</span>{" · "}
-              <span className="text-red-500">-{formatCHF(expenses)}</span>
+            <p className="text-white font-bold">{monthLabel}</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              <span className="text-green-400">+{formatCHF(income)}</span>
+              <span className="mx-1.5 text-zinc-700">·</span>
+              <span className="text-zinc-300">−{formatCHF(expenses)}</span>
             </p>
           </div>
-          <button onClick={nextMonth} className="p-2 rounded-xl hover:bg-gray-100">
-            <ChevronRight className="w-5 h-5 text-gray-600" />
+          <button onClick={nextMonth} className="text-zinc-400 hover:text-white transition-colors">
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="relative mb-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Suchen…"
-            className="w-full bg-gray-100 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none" />
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suchen…"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600" />
         </div>
 
         <div className="flex gap-2">
           {(["all", "expense", "income"] as const).map(f => (
             <button key={f} onClick={() => setFilterType(f)}
-              className={`text-xs font-medium px-3 py-1.5 rounded-xl transition-all ${filterType === f ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"}`}>
+              className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all ${filterType === f ? "bg-white text-black" : "bg-zinc-900 text-zinc-500"}`}>
               {f === "all" ? "Alle" : f === "expense" ? "Ausgaben" : "Einnahmen"}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-2">
+      <div className="px-6 py-4">
         {loading ? (
-          <p className="text-center text-gray-400 py-8 text-sm">Laden…</p>
+          <p className="text-center text-zinc-400 py-8 text-sm">Laden…</p>
         ) : visible.length === 0 ? (
-          <p className="text-center text-gray-400 py-8 text-sm">Keine Buchungen gefunden</p>
-        ) : visible.map(t => (
-          <div key={t.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 flex items-center gap-3">
-              <span className="text-2xl">{t.category.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{t.description || t.category.name}</p>
-                <p className="text-xs text-gray-400">{formatDate(t.date)} · {t.user.name}</p>
+          <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen gefunden</p>
+        ) : (
+          <div className="bg-white rounded-3xl overflow-hidden">
+            {visible.map((t, i) => (
+              <div key={t.id} className={i < visible.length - 1 ? "border-b border-gray-100" : ""}>
+                <div className="flex items-center gap-4 px-5 py-4">
+                  <span className="text-2xl w-8 text-center">{t.category.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{t.description || t.category.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{formatDate(t.date)} · {t.user.name}</p>
+                  </div>
+                  <p className={`text-sm font-bold tabular-nums ${t.category.type === "income" ? "text-green-500" : "text-gray-900"}`}>
+                    {t.category.type === "income" ? "+" : "−"}{formatCHF(t.amount)}
+                  </p>
+                  {t.photoPath && (
+                    <button onClick={() => setLightbox(t.photoPath!)} className="text-gray-300 hover:text-blue-400 p-1">
+                      <Image className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button onClick={() => deleteTransaction(t.id)} className="text-gray-200 hover:text-red-400 p-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                {t.photoPath && (
+                  <button onClick={() => setLightbox(t.photoPath!)} className="block w-full">
+                    <img src={`/api/photos/${t.photoPath}`} className="w-full h-32 object-cover" alt="Quittung" />
+                  </button>
+                )}
               </div>
-              <p className={`text-sm font-semibold tabular-nums ${t.category.type === "income" ? "text-green-600" : "text-red-500"}`}>
-                {t.category.type === "income" ? "+" : "-"}{formatCHF(t.amount)}
-              </p>
-              {t.photoPath && (
-                <button onClick={() => setLightbox(t.photoPath!)} className="text-gray-300 hover:text-blue-400 p-1">
-                  <Image className="w-4 h-4" />
-                </button>
-              )}
-              <button onClick={() => deleteTransaction(t.id)} className="text-gray-300 hover:text-red-400 p-1">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-            {t.photoPath && (
-              <button onClick={() => setLightbox(t.photoPath!)} className="block w-full">
-                <img src={`/api/photos/${t.photoPath}`} className="w-full h-32 object-cover" alt="Quittung" />
-              </button>
-            )}
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   )

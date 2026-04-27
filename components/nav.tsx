@@ -17,7 +17,7 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-100 z-50">
       <div className="grid grid-cols-5 max-w-lg mx-auto">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (pathname.startsWith(href) && href !== "/dashboard" && href !== "/mehr")
@@ -25,11 +25,11 @@ export function BottomNav() {
           return (
             <Link key={href} href={href}
               className={clsx(
-                "flex flex-col items-center gap-0.5 py-2 px-1 text-xs font-medium transition-colors",
-                isNew ? "text-green-600" : active ? "text-green-600" : "text-gray-400"
+                "flex flex-col items-center gap-1 py-3 text-xs font-semibold transition-colors",
+                isNew ? "text-green-500" : active ? "text-black" : "text-gray-300"
               )}>
-              <Icon className="w-5 h-5" strokeWidth={isNew || active ? 2 : 1.5} />
-              <span>{label}</span>
+              <Icon className="w-5 h-5" strokeWidth={active || isNew ? 2.5 : 1.5} />
+              <span className="text-[10px]">{label}</span>
             </Link>
           )
         })}

@@ -9,36 +9,39 @@ export default async function MehrPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="px-4 pt-14 pb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Mehr</h1>
-      </div>
-
-      <div className="px-4 space-y-4">
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-4 py-4 border-b border-gray-50">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm mb-2"
-              style={{ backgroundColor: session?.user?.color || "#6366f1" }}>
-              {session?.user?.name?.[0]?.toUpperCase()}
-            </div>
-            <p className="font-semibold text-gray-900">{session?.user?.name}</p>
-            <p className="text-sm text-gray-400">{session?.user?.email}</p>
+      <div className="bg-black px-6 pt-16 pb-8">
+        <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-4">Konto</p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center text-black font-black text-lg"
+            style={{ backgroundColor: session?.user?.color || "#16a34a" }}>
+            {session?.user?.name?.[0]?.toUpperCase()}
+          </div>
+          <div>
+            <p className="text-white font-bold text-lg">{session?.user?.name}</p>
+            <p className="text-zinc-500 text-sm">{session?.user?.email}</p>
           </div>
         </div>
+      </div>
 
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <Link href="/recurring" className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
-            <RefreshCw className="w-5 h-5 text-gray-400" />
-            <span className="text-sm font-medium text-gray-900 flex-1">Regeln</span>
+      <div className="px-6 pt-6 space-y-3">
+        <div className="bg-white rounded-3xl overflow-hidden">
+          <Link href="/recurring" className="flex items-center gap-4 px-5 py-4 border-b border-gray-100">
+            <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
+              <RefreshCw className="w-4 h-4 text-gray-600" />
+            </div>
+            <span className="text-sm font-semibold text-gray-900 flex-1">Regeln</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </Link>
-          <Link href="/goals" className="flex items-center gap-3 px-4 py-3.5">
-            <Target className="w-5 h-5 text-gray-400" />
-            <span className="text-sm font-medium text-gray-900 flex-1">Sparziele</span>
+          <Link href="/goals" className="flex items-center gap-4 px-5 py-4">
+            <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Target className="w-4 h-4 text-gray-600" />
+            </div>
+            <span className="text-sm font-semibold text-gray-900 flex-1">Sparziele</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </Link>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-3xl overflow-hidden">
           <SignOutButton />
         </div>
       </div>

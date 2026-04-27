@@ -9,9 +9,7 @@ type Transaction = {
   category: { id: string; name: string; icon: string; type: string }
 }
 
-type CategoryStat = {
-  id: string; name: string; icon: string; type: string; total: number
-}
+type CategoryStat = { id: string; name: string; icon: string; type: string; total: number }
 
 export default function StatsPage() {
   const now = new Date()
@@ -51,58 +49,53 @@ export default function StatsPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-white border-b border-gray-100 px-4 pt-14 pb-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={prevMonth} className="p-2 rounded-xl hover:bg-gray-100">
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
+      <div className="bg-black px-6 pt-16 pb-6 sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-5">
+          <button onClick={prevMonth} className="text-zinc-400 hover:text-white transition-colors">
+            <ChevronLeft className="w-5 h-5" />
           </button>
-          <p className="font-semibold text-gray-900">{monthLabel}</p>
-          <button onClick={nextMonth} className="p-2 rounded-xl hover:bg-gray-100">
-            <ChevronRight className="w-5 h-5 text-gray-600" />
+          <p className="text-white font-bold">{monthLabel}</p>
+          <button onClick={nextMonth} className="text-zinc-400 hover:text-white transition-colors">
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-2xl">
+        <div className="flex gap-2">
           {(["expense", "income"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`py-2 rounded-xl text-sm font-semibold transition-all ${tab === t ? "bg-white shadow-sm text-gray-900" : "text-gray-400"}`}>
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${tab === t ? "bg-white text-black" : "bg-zinc-900 text-zinc-500"}`}>
               {t === "expense" ? "Ausgaben" : "Einnahmen"}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="px-4 py-4">
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
-          Total: <span className={tab === "expense" ? "text-red-500" : "text-green-600"}>{formatCHF(total)}</span>
-        </p>
+      <div className="px-6 pt-6">
+        <div className="flex items-baseline gap-2 mb-6">
+          <p className="text-3xl font-black text-gray-900 tabular-nums">{formatCHF(total)}</p>
+          <p className="text-sm text-zinc-400 font-medium">Total</p>
+        </div>
 
         {loading ? (
-          <p className="text-center text-gray-400 py-8 text-sm">Laden…</p>
+          <p className="text-center text-zinc-400 py-8 text-sm">Laden…</p>
         ) : byCategory.length === 0 ? (
-          <p className="text-center text-gray-400 py-8 text-sm">Keine Buchungen</p>
+          <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen</p>
         ) : (
-          <div className="space-y-3">
-            {byCategory.map(cat => {
+          <div className="bg-white rounded-3xl overflow-hidden">
+            {byCategory.map((cat, i) => {
               const pct = total > 0 ? (cat.total / total) * 100 : 0
               return (
-                <div key={cat.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xl">{cat.icon}</span>
-                    <div className="flex-1 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900">{cat.name}</p>
-                      <div className="text-right">
-                        <p className={`text-sm font-semibold ${tab === "expense" ? "text-red-500" : "text-green-600"}`}>
-                          {formatCHF(cat.total)}
-                        </p>
-                        <p className="text-xs text-gray-400">{pct.toFixed(1)}%</p>
-                      </div>
+                <div key={cat.id} className={`px-5 py-4 ${i < byCategory.length - 1 ? "border-b border-gray-100" : ""}`}>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-xl w-7 text-center">{cat.icon}</span>
+                    <p className="text-sm font-semibold text-gray-900 flex-1">{cat.name}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900 tabular-nums">{formatCHF(cat.total)}</p>
+                      <p className="text-xs text-gray-400">{pct.toFixed(0)}%</p>
                     </div>
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${tab === "expense" ? "bg-red-400" : "bg-green-500"}`}
-                      style={{ width: `${pct}%` }}
-                    />
+                  <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${tab === "expense" ? "bg-gray-900" : "bg-green-500"}`}
+                      style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               )

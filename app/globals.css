@@ -7,5 +7,6 @@
 }
 
 body {
-  background-color: #f9fafb;
+  background-color: #f2f2f7;
+  font-feature-settings: "tnum";
 }
