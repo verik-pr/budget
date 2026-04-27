@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 export const metadata: Metadata = {
   title: "Budget",
   description: "Gemeinsames Budget",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Budget" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Budget" },
 }
 
 export const viewport: Viewport = {

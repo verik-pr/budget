@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionProvider session={session}>
-      <div className="min-h-screen" style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
+      <div className="app-root">
         {children}
       </div>
       <BottomNav />
