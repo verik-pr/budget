@@ -6,6 +6,8 @@ export async function register() {
       `ALTER TABLE "Transaction" ADD COLUMN "sharedWith" TEXT`,
       `ALTER TABLE "Transaction" ADD COLUMN "sharedRatio" REAL`,
       `ALTER TABLE "Transaction" ADD COLUMN "note" TEXT`,
+      `ALTER TABLE "Transaction" ADD COLUMN "receiptId" TEXT`,
+      `ALTER TABLE "Transaction" ADD COLUMN "receiptMerchant" TEXT`,
     ]
     for (const sql of migrations) {
       try {

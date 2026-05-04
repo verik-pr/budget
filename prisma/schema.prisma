@@ -52,9 +52,11 @@ model Transaction {
   account     Account?             @relation(fields: [accountId], references: [id])
   recurringId String?
   recurring   RecurringTransaction? @relation(fields: [recurringId], references: [id])
-  sharedWith  String?              // contributor value of the other person (e.g. "celine")
-  sharedRatio Float?               // fraction the other person owes (0.5 = half, 1.0 = full)
-  note        String?              // longer free-text note on the transaction
+  sharedWith      String?
+  sharedRatio     Float?
+  note            String?
+  receiptId       String?          // groups items from the same scan
+  receiptMerchant String?          // merchant name for the receipt group
   createdAt   DateTime             @default(now())
 }
 

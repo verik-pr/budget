@@ -3,7 +3,7 @@
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Camera, Check, Loader2, ScanLine, X, FileText, Receipt, ChevronDown, ChevronUp } from "lucide-react"
+import { Camera, Check, Loader2, ScanLine, X, FileText, Receipt } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
 
 type ScannedItem = {
@@ -41,7 +41,6 @@ export default function ScanPage() {
   const [accountId, setAccountId] = useState("")
   const [accounts, setAccounts] = useState<{ id: string; name: string; icon: string; color: string }[]>([])
   const [note, setNote] = useState("")
-  const [expanded, setExpanded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [saveError, setSaveError] = useState("")
@@ -59,7 +58,6 @@ export default function ScanPage() {
     setPhase("scanning")
     setError("")
     setNote("")
-    setExpanded(false)
 
     const [scanRes, catRes, accRes] = await Promise.all([
       (async () => { const fd = new FormData(); fd.append("file", file); return fetch("/api/scan-receipt", { method: "POST", body: fd }) })(),
@@ -110,6 +108,8 @@ export default function ScanPage() {
     setSaving(true)
     setSaveError("")
 
+    const receiptId = crypto.randomUUID()
+
     try {
       const responses = await Promise.all(toSave.map(item =>
         fetch("/api/transactions", {
@@ -123,6 +123,8 @@ export default function ScanPage() {
             contributor: item.contributor || null,
             accountId: accountId || null,
             note: note || null,
+            receiptId,
+            receiptMerchant: result?.merchant ?? null,
             ...(item.sharedWith ? { sharedWith: item.sharedWith, sharedRatio: item.sharedRatio } : {}),
           }),
         })
@@ -147,17 +149,27 @@ export default function ScanPage() {
     <div className="max-w-lg mx-auto min-h-screen bg-black">
       <div className="px-6 pt-safe pb-24">
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">
-            {phase === "review" ? (isInvoice ? "Rechnung" : "Quittung") : "Dokument scannen"}
-          </p>
+          <div>
+            <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">
+              {isInvoice ? "Rechnung" : "Quittung scannen"}
+            </p>
+            {result && (
+              <div className="flex items-center gap-2 mt-0.5">
+                {isInvoice ? <FileText className="w-3.5 h-3.5 text-blue-400" /> : <Receipt className="w-3.5 h-3.5 text-green-400" />}
+                <p className="text-white text-sm font-bold">
+                  {result.merchant} · {result.date}
+                  {result.dueDate && <span className="text-orange-400 ml-2">fällig {result.dueDate}</span>}
+                </p>
+              </div>
+            )}
+            {result?.reference && <p className="text-zinc-600 text-xs mt-0.5">Ref: {result.reference}</p>}
+          </div>
         </div>
 
-        {/* Capture */}
         {phase === "capture" && (
           <div className="flex flex-col items-center justify-center py-20 gap-6">
             <div className="w-20 h-20 bg-zinc-900 rounded-3xl flex items-center justify-center">
@@ -176,7 +188,6 @@ export default function ScanPage() {
           </div>
         )}
 
-        {/* Scanning */}
         {phase === "scanning" && (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <Loader2 className="w-10 h-10 text-green-500 animate-spin" />
@@ -185,106 +196,23 @@ export default function ScanPage() {
           </div>
         )}
 
-        {/* Review */}
-        {phase === "review" && result && (
-          <div className="space-y-4">
+        {phase === "review" && (
+          <div className="space-y-6">
 
-            {/* Main card — collapsed by default */}
-            <div className="bg-zinc-900 rounded-3xl overflow-hidden">
-
-              {/* Header row — always visible */}
-              <button
-                className="w-full flex items-center gap-4 px-5 py-4 active:bg-zinc-800 transition-colors"
-                onClick={() => setExpanded(e => !e)}>
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: isInvoice ? "#1e3a5f" : "#14532d" }}>
-                  {isInvoice
-                    ? <FileText className="w-5 h-5 text-blue-400" />
-                    : <Receipt className="w-5 h-5 text-green-400" />}
+            {isInvoice && (
+              <div className="bg-blue-950/40 border border-blue-900/50 rounded-2xl px-4 py-3 flex items-start gap-3">
+                <FileText className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-blue-300 text-sm font-semibold">Rechnung erkannt</p>
+                  {result?.dueDate && <p className="text-blue-400/70 text-xs mt-0.5">Zahlungsfrist: <span className="text-orange-400 font-semibold">{result.dueDate}</span></p>}
+                  {result?.reference && <p className="text-blue-400/70 text-xs">Referenz: {result.reference}</p>}
                 </div>
-                <div className="flex-1 text-left">
-                  <p className="text-white font-bold text-base">{result.merchant}</p>
-                  <p className="text-zinc-500 text-xs mt-0.5">
-                    {result.date}
-                    {result.dueDate && <span className="text-orange-400 ml-2">· fällig {result.dueDate}</span>}
-                    {result.reference && <span className="text-zinc-600 ml-2">· {result.reference}</span>}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-white font-bold tabular-nums">CHF {activeTotal.toFixed(2)}</p>
-                  <p className="text-zinc-500 text-xs mt-0.5">{activeItems.length} Posten</p>
-                </div>
-                <div className="ml-1 text-zinc-500">
-                  {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </div>
-              </button>
+              </div>
+            )}
 
-              {/* Expandable items */}
-              {expanded && (
-                <div className="border-t border-zinc-800">
-                  {items.map((item, i) => {
-                    const mode = getSplitMode(item)
-                    return (
-                      <div key={i} className={`border-b border-zinc-800 last:border-b-0 ${item.excluded ? "opacity-40" : ""}`}>
-
-                        {/* Item row */}
-                        <div className="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-zinc-800 transition-colors"
-                          onClick={() => toggleItem(i)}>
-                          <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${item.excluded ? "border-zinc-600" : "border-green-500 bg-green-500"}`}>
-                            {!item.excluded && <Check className="w-3 h-3 text-black" strokeWidth={3} />}
-                          </div>
-                          <p className={`flex-1 text-sm font-semibold ${item.excluded ? "line-through text-zinc-600" : "text-white"}`}>{item.name}</p>
-                          <p className={`text-sm font-bold tabular-nums ${item.excluded ? "text-zinc-700" : "text-white"}`}>CHF {item.amount.toFixed(2)}</p>
-                        </div>
-
-                        {!item.excluded && (
-                          <div className="px-4 pb-3 space-y-2">
-                            {/* Category */}
-                            <select
-                              value={item.categoryId}
-                              onChange={e => updateCategory(i, e.target.value)}
-                              className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none">
-                              {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>)}
-                            </select>
-
-                            {/* Split */}
-                            <div className="flex gap-2">
-                              {([
-                                { mode: "solo" as const, label: "Nur ich" },
-                                { mode: "half" as const, label: "50/50" },
-                                { mode: "full" as const, label: `Nur ${partner.label.split(" ")[0]}` },
-                              ]).map(opt => (
-                                <button key={opt.mode} type="button"
-                                  onClick={() => setSplit(i, opt.mode)}
-                                  style={mode === opt.mode && opt.mode !== "solo" ? { backgroundColor: partner.color } : {}}
-                                  className={`text-xs px-3 py-1.5 rounded-full font-bold transition-all flex-1 ${
-                                    mode === opt.mode
-                                      ? opt.mode === "solo" ? "bg-zinc-600 text-white" : "text-white"
-                                      : "bg-zinc-800 text-zinc-500"
-                                  }`}>
-                                  {opt.label}
-                                </button>
-                              ))}
-                            </div>
-
-                            {item.sharedWith && (
-                              <p className="text-xs text-zinc-500 text-right">
-                                {partner.label.split(" ")[0]} schuldet <span className="font-bold" style={{ color: partner.color }}>CHF {(item.amount * (item.sharedRatio ?? 0)).toFixed(2)}</span>
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Account */}
             {accounts.length > 1 && (
               <div>
-                <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Konto</p>
+                <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Konto</p>
                 <div className="flex gap-2 flex-wrap">
                   {accounts.map(acc => (
                     <button key={acc.id} type="button"
@@ -298,29 +226,73 @@ export default function ScanPage() {
               </div>
             )}
 
-            {/* Note */}
+            <div>
+              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Posten — tippe zum Ausschliessen</p>
+              <div className="space-y-2">
+                {items.map((item, i) => {
+                  const mode = getSplitMode(item)
+                  return (
+                    <div key={i} className={`rounded-2xl overflow-hidden transition-all ${item.excluded ? "opacity-30" : ""}`}>
+                      <div className="flex items-center gap-3 bg-zinc-900 px-4 py-3 cursor-pointer active:bg-zinc-800" onClick={() => toggleItem(i)}>
+                        <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${item.excluded ? "border-zinc-700" : "border-green-500 bg-green-500"}`}>
+                          {!item.excluded && <Check className="w-3 h-3 text-black" strokeWidth={3} />}
+                        </div>
+                        <p className={`flex-1 text-sm font-semibold ${item.excluded ? "line-through text-zinc-600" : "text-white"}`}>{item.name}</p>
+                        <p className={`text-sm font-bold tabular-nums ${item.excluded ? "text-zinc-700" : "text-white"}`}>CHF {item.amount.toFixed(2)}</p>
+                      </div>
+                      {!item.excluded && (
+                        <>
+                          <select value={item.categoryId} onChange={e => updateCategory(i, e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                            className="w-full bg-zinc-800 border-t border-zinc-700 px-4 py-2.5 text-xs text-zinc-400 focus:outline-none">
+                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>)}
+                          </select>
+                          <div className="bg-zinc-800 border-t border-zinc-700 px-4 py-2.5 flex gap-2">
+                            {([
+                              { mode: "solo" as const, label: "Nur ich" },
+                              { mode: "half" as const, label: "50/50" },
+                              { mode: "full" as const, label: `Nur ${partner.label.split(" ")[0]}` },
+                            ]).map(opt => (
+                              <button key={opt.mode} type="button"
+                                onClick={e => { e.stopPropagation(); setSplit(i, opt.mode) }}
+                                style={mode === opt.mode && opt.mode !== "solo" ? { backgroundColor: partner.color } : {}}
+                                className={`text-xs px-3 py-1.5 rounded-full font-bold transition-all flex-1 ${mode === opt.mode ? opt.mode === "solo" ? "bg-zinc-600 text-white" : "text-white" : "bg-zinc-700 text-zinc-400"}`}>
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                          {item.sharedWith && (
+                            <div className="bg-zinc-900 border-t border-zinc-700 px-4 py-2 flex justify-between">
+                              <p className="text-xs text-zinc-500">{partner.label.split(" ")[0]} schuldet</p>
+                              <p className="text-xs font-bold" style={{ color: partner.color }}>CHF {(item.amount * (item.sharedRatio ?? 0)).toFixed(2)}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
             <div>
               <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Notiz</p>
-              <textarea
-                value={note}
-                onChange={e => setNote(e.target.value)}
+              <textarea value={note} onChange={e => setNote(e.target.value)}
                 placeholder="z.B. Grosseinkauf vor den Ferien…"
                 rows={3}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 resize-none" />
             </div>
-
           </div>
         )}
       </div>
 
-      {/* Save bar */}
       {phase === "review" && (
         <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-900 px-6 py-4 safe-bottom">
           {saveError && <p className="text-red-400 text-xs text-center mb-2">{saveError}</p>}
           <div className="max-w-lg mx-auto flex items-center gap-4">
             <div className="flex-1">
               <p className="text-white font-bold tabular-nums">CHF {activeTotal.toFixed(2)}</p>
-              <p className="text-zinc-500 text-xs">{activeItems.length} Posten · tippe Karte zum Prüfen</p>
+              <p className="text-zinc-500 text-xs">{activeItems.length} Posten ausgewählt</p>
             </div>
             <button onClick={handleSave} disabled={saving || activeItems.length === 0}
               className="bg-green-500 text-black font-black px-6 py-3 rounded-2xl flex items-center gap-2 disabled:opacity-30 active:scale-95 transition-all">
