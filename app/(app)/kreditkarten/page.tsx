@@ -10,6 +10,7 @@ type CreditAccount = {
   name: string
   icon: string
   color: string
+  type: string
   dueDay: number | null
   ownerName: string | null
 }
