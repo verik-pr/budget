@@ -40,7 +40,7 @@ export default async function DashboardPage() {
   const [transactions, lastMonth] = await Promise.all([
     prisma.transaction.findMany({
       where: { date: { gte: start, lt: end } },
-      include: { category: true, user: { select: { id: true, name: true, color: true } } },
+      include: { category: true, user: { select: { id: true, name: true, color: true } }, account: { select: { id: true, name: true, icon: true, color: true } } },
       orderBy: { date: "desc" },
     }),
     prisma.transaction.findMany({
@@ -105,7 +105,10 @@ export default async function DashboardPage() {
                     {t.description || t.category.name}
                     {t.recurringId && <span className="text-gray-300 ml-1 font-normal">↻</span>}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(t.date)} · {getContributorLabel(t.contributor, t.user.name)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {formatDate(t.date)} · {getContributorLabel(t.contributor, t.user.name)}
+                    {t.account && <span style={{ color: t.account.color }}> · {t.account.icon} {t.account.name}</span>}
+                  </p>
                 </div>
                 <p className={`text-sm font-bold tabular-nums ${t.category.type === "income" ? "text-green-500" : "text-gray-900"}`}>
                   {t.category.type === "income" ? "+" : "−"}{formatCHF(t.amount)}

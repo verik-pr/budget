@@ -27,6 +27,16 @@ model Category {
   recurringTransactions RecurringTransaction[]
 }
 
+model Account {
+  id           String        @id @default(cuid())
+  name         String
+  icon         String        @default("🏦")
+  color        String        @default("#6366f1")
+  type         String        @default("personal") // "personal" | "shared"
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+}
+
 model Transaction {
   id          String               @id @default(cuid())
   date        DateTime
@@ -38,6 +48,8 @@ model Transaction {
   userId      String
   user        User                 @relation(fields: [userId], references: [id])
   contributor String?              // null = userId, "eltern_erik" | "eltern_celine" = Eltern
+  accountId   String?
+  account     Account?             @relation(fields: [accountId], references: [id])
   recurringId String?
   recurring   RecurringTransaction? @relation(fields: [recurringId], references: [id])
   createdAt   DateTime             @default(now())

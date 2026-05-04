@@ -29,6 +29,20 @@ async function main() {
     },
   })
 
+  const accounts = [
+    { id: "konto_erik", name: "Eriks Konto", icon: "💙", color: "#6366f1", type: "personal" },
+    { id: "konto_celine", name: "Célines Konto", icon: "💗", color: "#ec4899", type: "personal" },
+    { id: "konto_gemeinsam", name: "Gemeinsames Konto", icon: "🤝", color: "#8b5cf6", type: "shared" },
+  ]
+
+  for (const acc of accounts) {
+    await prisma.account.upsert({
+      where: { id: acc.id },
+      update: {},
+      create: acc,
+    })
+  }
+
   const categories = [
     { name: "Lohn", icon: "💼", type: "income" },
     { name: "Sonstiges Einkommen", icon: "💰", type: "income" },

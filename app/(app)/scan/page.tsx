@@ -31,6 +31,8 @@ export default function ScanPage() {
   const [items, setItems] = useState<ScannedItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [contributor, setContributor] = useState("")
+  const [accountId, setAccountId] = useState("")
+  const [accounts, setAccounts] = useState<{ id: string; name: string; icon: string; color: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
@@ -41,17 +43,19 @@ export default function ScanPage() {
     setPhase("scanning")
     setError("")
 
-    const [scanRes, catRes] = await Promise.all([
+    const [scanRes, catRes, accRes] = await Promise.all([
       (async () => {
         const fd = new FormData()
         fd.append("file", file)
         return fetch("/api/scan-receipt", { method: "POST", body: fd })
       })(),
       fetch("/api/categories"),
+      fetch("/api/accounts"),
     ])
 
-    const cats: Category[] = await catRes.json()
+    const [cats, accs]: [Category[], { id: string; name: string; icon: string; color: string }[]] = await Promise.all([catRes.json(), accRes.json()])
     setCategories(cats)
+    setAccounts(accs)
 
     if (!scanRes.ok) {
       const err = await scanRes.json()
@@ -90,6 +94,7 @@ export default function ScanPage() {
           description: item.name,
           date: result?.date ?? new Date().toISOString().split("T")[0],
           contributor: contributor || null,
+          accountId: accountId || null,
         }),
       })
     ))
@@ -169,6 +174,24 @@ export default function ScanPage() {
               </div>
               <p className="text-zinc-700 text-xs mt-2">Leer lassen = du selbst</p>
             </div>
+
+            {/* Konto */}
+            {accounts.length > 0 && (
+              <div>
+                <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Konto</p>
+                <div className="flex gap-2 flex-wrap">
+                  {accounts.map(acc => (
+                    <button key={acc.id} type="button"
+                      onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
+                      style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${accountId === acc.id ? "text-white" : "bg-zinc-900 text-zinc-400"}`}>
+                      <span>{acc.icon}</span>
+                      <span>{acc.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Items */}
             <div>

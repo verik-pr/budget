@@ -7,6 +7,7 @@ import Link from "next/link"
 import { CONTRIBUTORS } from "@/lib/utils"
 
 type Category = { id: string; name: string; icon: string; type: string }
+type Account = { id: string; name: string; icon: string; color: string; type: string }
 
 export default function NewTransactionPage() {
   const router = useRouter()
@@ -18,6 +19,8 @@ export default function NewTransactionPage() {
   const [description, setDescription] = useState("")
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [contributor, setContributor] = useState("")
+  const [accountId, setAccountId] = useState("")
+  const [accounts, setAccounts] = useState<Account[]>([])
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -28,6 +31,7 @@ export default function NewTransactionPage() {
       const first = data.find((c: Category) => c.type === "expense")
       if (first) setCategoryId(first.id)
     })
+    fetch("/api/accounts").then(r => r.json()).then(setAccounts)
   }, [])
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -58,7 +62,7 @@ export default function NewTransactionPage() {
     await fetch("/api/transactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: parseFloat(amount), categoryId, description, date, photoPath, contributor: contributor || null }),
+      body: JSON.stringify({ amount: parseFloat(amount), categoryId, description, date, photoPath, contributor: contributor || null, accountId: accountId || null }),
     })
     router.push("/dashboard")
     router.refresh()
@@ -143,6 +147,27 @@ export default function NewTransactionPage() {
               ))}
             </div>
           </div>
+
+          {/* Konto */}
+          {accounts.length > 0 && (
+            <div>
+              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Konto</p>
+              <div className="flex gap-2 flex-wrap">
+                {accounts.map(acc => (
+                  <button key={acc.id} type="button"
+                    onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
+                    style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+                      accountId === acc.id ? "text-white" : "bg-zinc-900 text-zinc-400"
+                    }`}>
+                    <span>{acc.icon}</span>
+                    <span>{acc.name}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-zinc-700 text-xs mt-2">Leer lassen = kein Konto</p>
+            </div>
+          )}
 
           {/* Von wem */}
           <div>
