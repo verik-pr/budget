@@ -14,19 +14,21 @@ export default function Icon() {
       justifyContent: "center",
     }}>
       <div style={{
-        background: "#16a34a",
-        width: "80%",
-        height: "80%",
+        background: "linear-gradient(150deg, #22c55e 0%, #15803d 100%)",
+        width: "78%",
+        height: "78%",
         borderRadius: "22%",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-end",
         justifyContent: "center",
-        fontSize: 260,
-        fontWeight: 900,
-        color: "#ffffff",
-        letterSpacing: "-8px",
+        paddingLeft: "15%",
+        paddingRight: "15%",
+        paddingBottom: "15%",
+        gap: "7%",
       }}>
-        B
+        <div style={{ background: "rgba(255,255,255,0.55)", flex: 1, height: "38%", borderRadius: "8px 8px 4px 4px" }} />
+        <div style={{ background: "rgba(255,255,255,0.78)", flex: 1, height: "60%", borderRadius: "8px 8px 4px 4px" }} />
+        <div style={{ background: "#ffffff", flex: 1, height: "88%", borderRadius: "8px 8px 4px 4px" }} />
       </div>
     </div>,
     { width: 512, height: 512 }
