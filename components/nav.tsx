@@ -16,8 +16,10 @@ const links = [
 export function BottomNav() {
   const pathname = usePathname()
 
+  if (pathname === "/scan") return null
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-100 z-50 nav-safe">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 nav-safe">
       <div className="grid grid-cols-5 max-w-lg mx-auto">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (pathname.startsWith(href) && href !== "/dashboard" && href !== "/mehr")
