@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, X, Check } from "lucide-react"
+import { Camera, X, Check, ScanLine } from "lucide-react"
+import Link from "next/link"
 import { CONTRIBUTORS } from "@/lib/utils"
 
 type Category = { id: string; name: string; icon: string; type: string }
@@ -67,6 +68,19 @@ export default function NewTransactionPage() {
     <div className="max-w-lg mx-auto min-h-screen bg-black">
       <div className="px-6 pt-safe pb-6">
         <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-6">Neue Buchung</p>
+
+        {/* Scan shortcut */}
+        <Link href="/scan"
+          className="flex items-center gap-3 bg-zinc-900 rounded-2xl px-4 py-3 mb-8 active:bg-zinc-800 transition-colors">
+          <div className="w-9 h-9 bg-green-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <ScanLine className="w-5 h-5 text-green-500" />
+          </div>
+          <div className="flex-1">
+            <p className="text-white text-sm font-bold">Quittung scannen</p>
+            <p className="text-zinc-500 text-xs">KI erkennt Posten automatisch</p>
+          </div>
+          <span className="text-zinc-600 text-lg">›</span>
+        </Link>
 
         {/* Type toggle */}
         <div className="flex gap-3 mb-8">
