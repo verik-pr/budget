@@ -23,13 +23,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
   }
 
+  const currentUser = await prisma.user.findUnique({ where: { email: session.user.email! } })
+  if (!currentUser) return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 })
+
   const rule = await prisma.recurringTransaction.create({
     data: {
       name,
       amount: parseFloat(amount),
       categoryId,
       dayOfMonth: parseInt(dayOfMonth),
-      userId: session.user.id,
+      userId: currentUser.id,
     },
     include: { category: true, user: { select: { id: true, name: true, color: true } } },
   })

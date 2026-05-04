@@ -43,6 +43,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
   }
 
+  // Resolve current user by email to handle stale session IDs after DB resets
+  const currentUser = await prisma.user.findUnique({ where: { email: session.user.email! } })
+  if (!currentUser) return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 })
+
   const transaction = await prisma.transaction.create({
     data: {
       date: new Date(date),
@@ -50,7 +54,7 @@ export async function POST(req: Request) {
       description: description || null,
       photoPath: photoPath || null,
       categoryId,
-      userId: session.user.id,
+      userId: currentUser.id,
       contributor: contributor || null,
       accountId: accountId || null,
       ...(sharedWith ? { sharedWith, sharedRatio: sharedRatio ?? null } : {}),

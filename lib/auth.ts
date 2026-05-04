@@ -28,7 +28,12 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     session: async ({ session, token }) => {
-      if (token) { session.user.id = token.id as string; session.user.color = token.color as string }
+      if (token) {
+        // Always resolve fresh user from DB so stale IDs after DB resets don't cause FK errors
+        const fresh = await prisma.user.findUnique({ where: { email: session.user.email! } })
+        session.user.id = fresh?.id ?? token.id as string
+        session.user.color = fresh?.color ?? token.color as string
+      }
       return session
     },
   },
