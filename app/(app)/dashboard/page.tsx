@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { formatCHF, formatDate, getContributorLabel } from "@/lib/utils"
+import { AccountSelector } from "@/components/account-selector"
 import Link from "next/link"
 
 async function applyRecurring() {
@@ -29,11 +30,13 @@ async function applyRecurring() {
   }
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ konto?: string }> }) {
   await applyRecurring()
 
+  const session = await getServerSession(authOptions)
+  const { konto } = await searchParams
+
   const now = new Date()
-  // Salary period: 24th to 23rd. If today < 24, period started on the 24th of last month.
   const periodStart = now.getDate() >= 24
     ? new Date(now.getFullYear(), now.getMonth(), 24)
     : new Date(now.getFullYear(), now.getMonth() - 1, 24)
@@ -41,14 +44,23 @@ export default async function DashboardPage() {
   const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
   const lastStart = new Date(periodStart.getFullYear(), periodStart.getMonth() - 1, 24)
 
+  const accounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } })
+
+  // Default: find personal account matching user's first name
+  const firstName = session?.user?.name?.split(" ")[0] ?? ""
+  const personalAccount = accounts.find(a =>
+    a.type === "personal" && a.name.toLowerCase().includes(firstName.toLowerCase())
+  )
+  const selectedId = konto ?? personalAccount?.id ?? accounts[0]?.id
+
   const [transactions, lastMonth] = await Promise.all([
     prisma.transaction.findMany({
-      where: { date: { gte: start, lt: end } },
+      where: { date: { gte: start, lt: end }, accountId: selectedId },
       include: { category: true, user: { select: { id: true, name: true, color: true } }, account: { select: { id: true, name: true, icon: true, color: true } } },
       orderBy: { date: "desc" },
     }),
     prisma.transaction.findMany({
-      where: { date: { gte: lastStart, lt: start } },
+      where: { date: { gte: lastStart, lt: start }, accountId: selectedId },
       include: { category: true },
     }),
   ])
@@ -60,14 +72,17 @@ export default async function DashboardPage() {
   const lastExpenses = lastMonth.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
   const expenseDiff = lastExpenses !== 0 ? Math.round(((expenses - lastExpenses) / Math.abs(lastExpenses)) * 100) : null
 
-  const endLabel = new Date(end.getTime() - 86400000) // one day before end = the 23rd
+  const endLabel = new Date(end.getTime() - 86400000)
   const monthLabel = `${start.getDate()}. ${start.toLocaleDateString("de-CH", { month: "short" })} – ${endLabel.getDate()}. ${endLabel.toLocaleDateString("de-CH", { month: "short", year: "numeric" })}`
 
   return (
     <div className="max-w-lg mx-auto">
       {/* Header */}
       <div className="bg-black px-6 pt-safe pb-10">
-        <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-6">{monthLabel}</p>
+        <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-4">{monthLabel}</p>
+
+        <AccountSelector accounts={accounts} selected={selectedId} />
+
         <p className="text-white text-5xl font-black tracking-tight tabular-nums">
           {formatCHF(balance)}
         </p>
