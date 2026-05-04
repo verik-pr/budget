@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { date, amount, description, categoryId, photoPath, contributor, accountId } = body
+  const { date, amount, description, categoryId, photoPath, contributor, accountId, sharedWith, sharedRatio } = body
 
   if (!date || !amount || !categoryId) {
     return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
@@ -53,6 +53,8 @@ export async function POST(req: Request) {
       userId: session.user.id,
       contributor: contributor || null,
       accountId: accountId || null,
+      sharedWith: sharedWith || null,
+      sharedRatio: sharedRatio ?? null,
     },
     include: { category: true, user: { select: { id: true, name: true, color: true } } },
   })

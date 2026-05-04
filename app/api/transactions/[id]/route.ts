@@ -22,7 +22,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params
   const body = await req.json()
-  const { amount, categoryId, description, date, contributor, accountId } = body
+  const { amount, categoryId, description, date, contributor, accountId, sharedWith, sharedRatio } = body
 
   const transaction = await prisma.transaction.update({
     where: { id },
@@ -33,6 +33,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(date !== undefined && { date: new Date(date) }),
       ...(contributor !== undefined && { contributor: contributor || null }),
       ...(accountId !== undefined && { accountId: accountId || null }),
+      ...(sharedWith !== undefined && { sharedWith: sharedWith || null }),
+      ...(sharedRatio !== undefined && { sharedRatio: sharedRatio ?? null }),
     },
   })
   return NextResponse.json(transaction)

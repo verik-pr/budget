@@ -52,6 +52,8 @@ model Transaction {
   account     Account?             @relation(fields: [accountId], references: [id])
   recurringId String?
   recurring   RecurringTransaction? @relation(fields: [recurringId], references: [id])
+  sharedWith  String?              // contributor value of the other person (e.g. "celine")
+  sharedRatio Float?               // fraction the other person owes (0.5 = half, 1.0 = full)
   createdAt   DateTime             @default(now())
 }
 
