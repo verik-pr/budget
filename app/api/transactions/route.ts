@@ -53,8 +53,7 @@ export async function POST(req: Request) {
       userId: session.user.id,
       contributor: contributor || null,
       accountId: accountId || null,
-      sharedWith: sharedWith || null,
-      sharedRatio: sharedRatio ?? null,
+      ...(sharedWith ? { sharedWith, sharedRatio: sharedRatio ?? null } : {}),
     },
     include: { category: true, user: { select: { id: true, name: true, color: true } } },
   })
