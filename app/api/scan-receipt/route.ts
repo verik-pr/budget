@@ -25,13 +25,13 @@ export async function POST(req: NextRequest) {
   const today = new Date().toISOString().split("T")[0]
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" })
 
-  const result = await model.generateContent([
-    {
-      inlineData: { data: base64, mimeType },
-    },
-    `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
+  let text: string
+  try {
+    const result = await model.generateContent([
+      { inlineData: { data: base64, mimeType } },
+      `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
 
 Antworte NUR mit validem JSON, kein anderer Text:
 {
@@ -50,9 +50,14 @@ Regeln:
 - Wähle die passendste verfügbare Kategorie
 - Erfasse jeden einzelnen Posten separat
 - Keine Rabatte oder Zwischensummen als separate Posten`,
-  ])
+    ])
+    text = result.response.text()
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "KI-Fehler"
+    const status = msg.includes("429") ? 429 : msg.includes("404") ? 404 : 502
+    return NextResponse.json({ error: `KI-Fehler: ${msg.slice(0, 120)}` }, { status })
+  }
 
-  const text = result.response.text()
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     return NextResponse.json({ error: "Quittung konnte nicht gelesen werden" }, { status: 422 })
