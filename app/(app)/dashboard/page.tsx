@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { formatCHF, formatDate } from "@/lib/utils"
+import { formatCHF, formatDate, getContributorLabel } from "@/lib/utils"
 import Link from "next/link"
 
 async function applyRecurring() {
@@ -105,7 +105,7 @@ export default async function DashboardPage() {
                     {t.description || t.category.name}
                     {t.recurringId && <span className="text-gray-300 ml-1 font-normal">↻</span>}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(t.date)} · {t.user.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(t.date)} · {getContributorLabel(t.contributor, t.user.name)}</p>
                 </div>
                 <p className={`text-sm font-bold tabular-nums ${t.category.type === "income" ? "text-green-500" : "text-gray-900"}`}>
                   {t.category.type === "income" ? "+" : "−"}{formatCHF(t.amount)}

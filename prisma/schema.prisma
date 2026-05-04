@@ -37,6 +37,7 @@ model Transaction {
   category    Category             @relation(fields: [categoryId], references: [id])
   userId      String
   user        User                 @relation(fields: [userId], references: [id])
+  contributor String?              // null = userId, "eltern_erik" | "eltern_celine" = Eltern
   recurringId String?
   recurring   RecurringTransaction? @relation(fields: [recurringId], references: [id])
   createdAt   DateTime             @default(now())

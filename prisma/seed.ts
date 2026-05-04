@@ -32,7 +32,9 @@ async function main() {
   const categories = [
     { name: "Lohn", icon: "💼", type: "income" },
     { name: "Sonstiges Einkommen", icon: "💰", type: "income" },
+    { name: "Beitrag Familie", icon: "💝", type: "income" },
     { name: "Miete", icon: "🏠", type: "expense" },
+    { name: "Baby & Kind", icon: "👶", type: "expense" },
     { name: "Lebensmittel", icon: "🛒", type: "expense" },
     { name: "Restaurant", icon: "🍽️", type: "expense" },
     { name: "Transport", icon: "🚗", type: "expense" },

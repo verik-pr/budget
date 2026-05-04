@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Camera, X, Check } from "lucide-react"
+import { CONTRIBUTORS } from "@/lib/utils"
 
 type Category = { id: string; name: string; icon: string; type: string }
 
@@ -15,6 +16,7 @@ export default function NewTransactionPage() {
   const [categoryId, setCategoryId] = useState("")
   const [description, setDescription] = useState("")
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
+  const [contributor, setContributor] = useState("")
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -55,7 +57,7 @@ export default function NewTransactionPage() {
     await fetch("/api/transactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: parseFloat(amount), categoryId, description, date, photoPath }),
+      body: JSON.stringify({ amount: parseFloat(amount), categoryId, description, date, photoPath, contributor: contributor || null }),
     })
     router.push("/dashboard")
     router.refresh()
@@ -126,6 +128,24 @@ export default function NewTransactionPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Von wem */}
+          <div>
+            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Von wem</p>
+            <div className="grid grid-cols-2 gap-2">
+              {CONTRIBUTORS.map(c => (
+                <button key={c.value} type="button"
+                  onClick={() => setContributor(contributor === c.value ? "" : c.value)}
+                  style={contributor === c.value ? { backgroundColor: c.color } : {}}
+                  className={`rounded-2xl py-3 px-3 text-sm font-bold transition-all text-left ${
+                    contributor === c.value ? "text-white" : "bg-zinc-900 text-zinc-400"
+                  }`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-zinc-700 text-xs mt-2">Leer lassen = du selbst</p>
           </div>
 
           {/* Photo */}
