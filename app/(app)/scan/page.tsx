@@ -108,7 +108,7 @@ export default function ScanPage() {
     setSaveError("")
 
     try {
-      const results = await Promise.all(toSave.map(item =>
+      const responses = await Promise.all(toSave.map(item =>
         fetch("/api/transactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -123,7 +123,11 @@ export default function ScanPage() {
           }),
         })
       ))
-      if (results.some(r => !r.ok)) throw new Error("Speichern fehlgeschlagen")
+      const failed = responses.find(r => !r.ok)
+      if (failed) {
+        const err = await failed.json().catch(() => ({}))
+        throw new Error(err.error || `HTTP ${failed.status}`)
+      }
       router.push("/dashboard")
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Fehler beim Speichern")
