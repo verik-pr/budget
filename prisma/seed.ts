@@ -57,6 +57,8 @@ async function main() {
     { name: "Kleidung", icon: "👗", type: "expense" },
     { name: "Reisen", icon: "✈️", type: "expense" },
     { name: "Versicherung", icon: "🛡️", type: "expense" },
+    { name: "Abonnements", icon: "📱", type: "expense" },
+    { name: "Geschenke", icon: "🎁", type: "expense" },
     { name: "Sparen", icon: "🏦", type: "expense" },
     { name: "Sonstiges", icon: "📦", type: "expense" },
   ]

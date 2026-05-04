@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (!auth(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { amount, description, date, categoryId, categoryName, contributor, accountId, accountName } = body
+  const { amount, description, date, categoryId, categoryName, contributor, accountId, accountName, userEmail } = body
 
   if (!amount || amount <= 0) return NextResponse.json({ error: "amount required" }, { status: 400 })
 
@@ -53,8 +53,10 @@ export async function POST(req: NextRequest) {
     resolvedAccountId = acc?.id ?? null
   }
 
-  // Resolve user (use first user as default agent user)
-  const user = await prisma.user.findFirst()
+  // Resolve user
+  const user = userEmail
+    ? await prisma.user.findUnique({ where: { email: userEmail } })
+    : await prisma.user.findFirst()
   if (!user) return NextResponse.json({ error: "Kein Benutzer gefunden" }, { status: 500 })
 
   const transaction = await prisma.transaction.create({
