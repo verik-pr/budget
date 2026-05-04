@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { GoogleGenerativeAI } from "@google/generative-ai"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: "GEMINI_API_KEY nicht konfiguriert" }, { status: 503 })
-  }
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY nicht konfiguriert" }, { status: 503 })
 
   const formData = await req.formData()
   const file = formData.get("file") as File | null
@@ -18,20 +16,13 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer()
   const base64 = Buffer.from(bytes).toString("base64")
-  const mimeType = (file.type || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp"
+  const mimeType = file.type || "image/jpeg"
 
   const categories = await prisma.category.findMany()
   const categoryNames = categories.map(c => c.name).join(", ")
   const today = new Date().toISOString().split("T")[0]
 
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" })
-
-  let text: string
-  try {
-    const result = await model.generateContent([
-      { inlineData: { data: base64, mimeType } },
-      `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
+  const prompt = `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
 
 Antworte NUR mit validem JSON, kein anderer Text:
 {
@@ -49,19 +40,39 @@ Regeln:
 - Beträge: immer positiv, 2 Dezimalstellen
 - Wähle die passendste verfügbare Kategorie
 - Erfasse jeden einzelnen Posten separat
-- Keine Rabatte oder Zwischensummen als separate Posten`,
-    ])
-    text = result.response.text()
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "KI-Fehler"
-    const status = msg.includes("429") ? 429 : msg.includes("404") ? 404 : 502
-    return NextResponse.json({ error: `KI-Fehler: ${msg.slice(0, 120)}` }, { status })
+- Keine Rabatte oder Zwischensummen als separate Posten`
+
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+
+  let geminiRes: Response
+  try {
+    geminiRes = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: mimeType, data: base64 } },
+            { text: prompt },
+          ],
+        }],
+      }),
+    })
+  } catch (err) {
+    return NextResponse.json({ error: "Netzwerkfehler zur KI" }, { status: 502 })
   }
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    return NextResponse.json({ error: "Quittung konnte nicht gelesen werden" }, { status: 422 })
+  if (!geminiRes.ok) {
+    const body = await geminiRes.json().catch(() => ({}))
+    const msg = body?.error?.message ?? geminiRes.statusText
+    return NextResponse.json({ error: `KI-Fehler (${geminiRes.status}): ${msg}` }, { status: geminiRes.status })
   }
+
+  const data = await geminiRes.json()
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) return NextResponse.json({ error: "Quittung konnte nicht gelesen werden" }, { status: 422 })
 
   let parsed: { merchant: string; date: string; items: { name: string; amount: number; category: string }[] }
   try {
