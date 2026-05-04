@@ -2,16 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import Anthropic from "@anthropic-ai/sdk"
-
-type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif"
+import OpenAI from "openai"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY nicht konfiguriert" }, { status: 503 })
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ error: "OPENAI_API_KEY nicht konfiguriert" }, { status: 503 })
   }
 
   const formData = await req.formData()
@@ -20,30 +18,23 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer()
   const base64 = Buffer.from(bytes).toString("base64")
-
-  const typeMap: Record<string, ImageMediaType> = {
-    "image/jpeg": "image/jpeg",
-    "image/jpg": "image/jpeg",
-    "image/png": "image/png",
-    "image/webp": "image/webp",
-  }
-  const mediaType: ImageMediaType = typeMap[file.type] ?? "image/jpeg"
+  const mediaType = file.type || "image/jpeg"
 
   const categories = await prisma.category.findMany()
   const categoryNames = categories.map(c => c.name).join(", ")
   const today = new Date().toISOString().split("T")[0]
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
     max_tokens: 1024,
     messages: [{
       role: "user",
       content: [
         {
-          type: "image",
-          source: { type: "base64", media_type: mediaType, data: base64 },
+          type: "image_url",
+          image_url: { url: `data:${mediaType};base64,${base64}`, detail: "high" },
         },
         {
           type: "text",
@@ -71,7 +62,7 @@ Regeln:
     }],
   })
 
-  const text = response.content[0].type === "text" ? response.content[0].text : ""
+  const text = response.choices[0]?.message?.content ?? ""
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     return NextResponse.json({ error: "Quittung konnte nicht gelesen werden" }, { status: 422 })
@@ -85,9 +76,7 @@ Regeln:
   }
 
   const itemsWithIds = parsed.items.map(item => {
-    const matched = categories.find(
-      c => c.name.toLowerCase() === item.category?.toLowerCase()
-    )
+    const matched = categories.find(c => c.name.toLowerCase() === item.category?.toLowerCase())
     const fallback = categories.find(c => c.name === "Sonstiges")
     return {
       ...item,
