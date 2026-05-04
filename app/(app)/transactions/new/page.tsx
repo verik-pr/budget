@@ -108,7 +108,7 @@ export default function NewTransactionPage() {
         {/* Amount */}
         <div className="mb-8">
           <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Betrag CHF</p>
-          <input type="number" step="0.01" min="0.01" required value={amount}
+          <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" required value={amount}
             onChange={e => setAmount(e.target.value)} placeholder="0.00"
             className="w-full bg-transparent text-white text-5xl font-black focus:outline-none placeholder-zinc-800 tabular-nums" />
           <div className="h-px bg-zinc-800 mt-3" />
