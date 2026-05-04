@@ -21,3 +21,14 @@ export async function GET(req: Request) {
 
   return NextResponse.json(accounts)
 }
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { name, icon, color, type, dueDay, ownerName } = await req.json()
+  if (!name || !type) return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
+  const account = await prisma.account.create({
+    data: { name, icon: icon || "💳", color: color || "#6366f1", type, dueDay: dueDay || null, ownerName: ownerName || null },
+  })
+  return NextResponse.json(account)
+}
