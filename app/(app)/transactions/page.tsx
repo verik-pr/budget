@@ -1,19 +1,30 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { formatCHF, formatDate } from "@/lib/utils"
+import { formatCHF, formatDate, getContributorLabel } from "@/lib/utils"
 import { Trash2, ChevronLeft, ChevronRight, Search, Image } from "lucide-react"
 
 type Transaction = {
   id: string; date: string; amount: number; description: string | null; photoPath: string | null
+  contributor: string | null
   category: { id: string; name: string; icon: string; type: string }
   user: { id: string; name: string; color: string }
+  account: { id: string; name: string; icon: string; color: string } | null
+}
+
+type Account = { id: string; name: string; icon: string; color: string }
+
+function initialPeriodStart() {
+  const today = new Date()
+  return today.getDate() >= 24
+    ? new Date(today.getFullYear(), today.getMonth(), 24)
+    : new Date(today.getFullYear(), today.getMonth() - 1, 24)
 }
 
 export default function TransactionsPage() {
-  const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [periodStart, setPeriodStart] = useState<Date>(initialPeriodStart)
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [accountId, setAccountId] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [search, setSearch] = useState("")
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all")
@@ -21,17 +32,33 @@ export default function TransactionsPage() {
   const [lightbox, setLightbox] = useState<string | null>(null)
 
   useEffect(() => {
+    fetch("/api/accounts?mine=true")
+      .then(r => r.json())
+      .then(({ accounts: accs, defaultId }: { accounts: Account[]; defaultId: string | null }) => {
+        setAccounts(accs)
+        setAccountId(defaultId)
+      })
+  }, [])
+
+  useEffect(() => {
+    if (accountId === undefined) return
     setLoading(true)
-    fetch(`/api/transactions?year=${year}&month=${month}`)
+    const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
+    const params = new URLSearchParams({
+      startDate: periodStart.toISOString(),
+      endDate: end.toISOString(),
+      ...(accountId ? { accountId } : {}),
+    })
+    fetch(`/api/transactions?${params}`)
       .then(r => r.json())
       .then(data => { setTransactions(data); setLoading(false) })
-  }, [year, month])
+  }, [periodStart, accountId])
 
-  function prevMonth() {
-    if (month === 1) { setMonth(12); setYear(y => y - 1) } else setMonth(m => m - 1)
+  function prevPeriod() {
+    setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() - 1, 24))
   }
-  function nextMonth() {
-    if (month === 12) { setMonth(1); setYear(y => y + 1) } else setMonth(m => m + 1)
+  function nextPeriod() {
+    setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() + 1, 24))
   }
 
   async function deleteTransaction(id: string) {
@@ -40,13 +67,16 @@ export default function TransactionsPage() {
     setTransactions(ts => ts.filter(t => t.id !== id))
   }
 
+  const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
+  const lastDay = new Date(periodEnd.getTime() - 86400000)
+  const periodLabel = `${periodStart.getDate()}. ${periodStart.toLocaleDateString("de-CH", { month: "short" })} – ${lastDay.getDate()}. ${lastDay.toLocaleDateString("de-CH", { month: "short", year: "numeric" })}`
+
   const visible = transactions
     .filter(t => filterType === "all" || t.category.type === filterType)
     .filter(t => !search || (t.description || t.category.name).toLowerCase().includes(search.toLowerCase()))
 
   const income = transactions.filter(t => t.category.type === "income").reduce((s, t) => s + t.amount, 0)
   const expenses = transactions.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
-  const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" })
 
   return (
     <div className="max-w-lg mx-auto">
@@ -56,23 +86,37 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      <div className="bg-black px-6 pt-safe pb-6 sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={prevMonth} className="text-zinc-400 hover:text-white transition-colors">
+      <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={prevPeriod} className="text-zinc-400 hover:text-white transition-colors">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="text-center">
-            <p className="text-white font-bold">{monthLabel}</p>
+            <p className="text-white font-bold text-sm">{periodLabel}</p>
             <p className="text-xs text-zinc-500 mt-0.5">
               <span className="text-green-400">+{formatCHF(income)}</span>
               <span className="mx-1.5 text-zinc-700">·</span>
               <span className="text-zinc-300">−{formatCHF(expenses)}</span>
             </p>
           </div>
-          <button onClick={nextMonth} className="text-zinc-400 hover:text-white transition-colors">
+          <button onClick={nextPeriod} className="text-zinc-400 hover:text-white transition-colors">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+
+        {accounts.length > 1 && (
+          <div className="flex gap-2 flex-wrap mb-3">
+            {accounts.map(acc => (
+              <button key={acc.id} type="button"
+                onClick={() => setAccountId(acc.id)}
+                style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${accountId === acc.id ? "text-white" : "bg-zinc-800 text-zinc-400"}`}>
+                <span>{acc.icon}</span>
+                <span>{acc.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
@@ -103,7 +147,10 @@ export default function TransactionsPage() {
                   <span className="text-2xl w-8 text-center">{t.category.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{t.description || t.category.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{formatDate(t.date)} · {t.user.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {formatDate(t.date)} · {getContributorLabel(t.contributor, t.user.name)}
+                      {t.account && <span style={{ color: t.account.color }}> · {t.account.icon} {t.account.name}</span>}
+                    </p>
                   </div>
                   <p className={`text-sm font-bold tabular-nums ${t.category.type === "income" ? "text-green-500" : "text-gray-900"}`}>
                     {t.category.type === "income" ? "+" : "−"}{formatCHF(t.amount)}

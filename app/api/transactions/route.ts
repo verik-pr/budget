@@ -8,12 +8,20 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()))
-  const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1))
   const accountId = searchParams.get("accountId")
+  const startDate = searchParams.get("startDate")
+  const endDate = searchParams.get("endDate")
 
-  const start = new Date(year, month - 1, 1)
-  const end = new Date(year, month, 1)
+  let start: Date, end: Date
+  if (startDate && endDate) {
+    start = new Date(startDate)
+    end = new Date(endDate)
+  } else {
+    const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()))
+    const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1))
+    start = new Date(year, month - 1, 1)
+    end = new Date(year, month, 1)
+  }
 
   const transactions = await prisma.transaction.findMany({
     where: { date: { gte: start, lt: end }, ...(accountId ? { accountId } : {}) },
