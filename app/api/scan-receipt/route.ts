@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import Anthropic from "@anthropic-ai/sdk"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return NextResponse.json({ error: "GEMINI_API_KEY nicht konfiguriert" }, { status: 503 })
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY nicht konfiguriert" }, { status: 503 })
 
   const formData = await req.formData()
   const file = formData.get("file") as File | null
@@ -16,13 +17,29 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer()
   const base64 = Buffer.from(bytes).toString("base64")
-  const mimeType = file.type || "image/jpeg"
+  const mediaType = (file.type || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp" | "image/gif"
 
   const categories = await prisma.category.findMany()
   const categoryNames = categories.map(c => c.name).join(", ")
   const today = new Date().toISOString().split("T")[0]
 
-  const prompt = `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
+  const client = new Anthropic({ apiKey })
+
+  let text: string
+  try {
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data: base64 },
+          },
+          {
+            type: "text",
+            text: `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
 
 Antworte NUR mit validem JSON, kein anderer Text:
 {
@@ -40,36 +57,16 @@ Regeln:
 - Beträge: immer positiv, 2 Dezimalstellen
 - Wähle die passendste verfügbare Kategorie
 - Erfasse jeden einzelnen Posten separat
-- Keine Rabatte oder Zwischensummen als separate Posten`
-
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`
-
-  let geminiRes: Response
-  try {
-    geminiRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: mimeType, data: base64 } },
-            { text: prompt },
-          ],
-        }],
-      }),
+- Keine Rabatte oder Zwischensummen als separate Posten`,
+          },
+        ],
+      }],
     })
-  } catch (err) {
-    return NextResponse.json({ error: "Netzwerkfehler zur KI" }, { status: 502 })
+    text = response.content[0].type === "text" ? response.content[0].text : ""
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unbekannter Fehler"
+    return NextResponse.json({ error: `KI-Fehler: ${msg.slice(0, 120)}` }, { status: 502 })
   }
-
-  if (!geminiRes.ok) {
-    const body = await geminiRes.json().catch(() => ({}))
-    const msg = body?.error?.message ?? geminiRes.statusText
-    return NextResponse.json({ error: `KI-Fehler (${geminiRes.status}): ${msg}` }, { status: geminiRes.status })
-  }
-
-  const data = await geminiRes.json()
-  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
 
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) return NextResponse.json({ error: "Quittung konnte nicht gelesen werden" }, { status: 422 })
