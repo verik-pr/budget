@@ -33,9 +33,13 @@ export default async function DashboardPage() {
   await applyRecurring()
 
   const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), 1)
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  const lastStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  // Salary period: 24th to 23rd. If today < 24, period started on the 24th of last month.
+  const periodStart = now.getDate() >= 24
+    ? new Date(now.getFullYear(), now.getMonth(), 24)
+    : new Date(now.getFullYear(), now.getMonth() - 1, 24)
+  const start = periodStart
+  const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
+  const lastStart = new Date(periodStart.getFullYear(), periodStart.getMonth() - 1, 24)
 
   const [transactions, lastMonth] = await Promise.all([
     prisma.transaction.findMany({
@@ -56,7 +60,8 @@ export default async function DashboardPage() {
   const lastExpenses = lastMonth.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
   const expenseDiff = lastExpenses !== 0 ? Math.round(((expenses - lastExpenses) / Math.abs(lastExpenses)) * 100) : null
 
-  const monthLabel = now.toLocaleDateString("de-CH", { month: "long", year: "numeric" })
+  const endLabel = new Date(end.getTime() - 86400000) // one day before end = the 23rd
+  const monthLabel = `${start.getDate()}. ${start.toLocaleDateString("de-CH", { month: "short" })} – ${endLabel.getDate()}. ${endLabel.toLocaleDateString("de-CH", { month: "short", year: "numeric" })}`
 
   return (
     <div className="max-w-lg mx-auto">
