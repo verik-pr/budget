@@ -38,9 +38,8 @@ export async function POST(req: NextRequest) {
   // Resolve category
   let resolvedCategoryId = categoryId
   if (!resolvedCategoryId && categoryName) {
-    const cat = await prisma.category.findFirst({
-      where: { name: { equals: categoryName, mode: "insensitive" } },
-    })
+    const cats = await prisma.category.findMany()
+    const cat = cats.find(c => c.name.toLowerCase() === categoryName.toLowerCase())
     if (!cat) return NextResponse.json({ error: `Kategorie "${categoryName}" nicht gefunden` }, { status: 400 })
     resolvedCategoryId = cat.id
   }
@@ -49,9 +48,8 @@ export async function POST(req: NextRequest) {
   // Resolve account
   let resolvedAccountId = accountId ?? null
   if (!resolvedAccountId && accountName) {
-    const acc = await prisma.account.findFirst({
-      where: { name: { equals: accountName, mode: "insensitive" } },
-    })
+    const accs = await prisma.account.findMany()
+    const acc = accs.find(a => a.name.toLowerCase() === accountName.toLowerCase())
     resolvedAccountId = acc?.id ?? null
   }
 
