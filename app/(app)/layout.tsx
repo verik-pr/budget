@@ -6,7 +6,7 @@ import { SessionProvider } from "@/components/session-provider"
 import { BottomNav } from "@/components/nav"
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#000000",
 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
