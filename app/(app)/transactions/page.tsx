@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { formatCHF, formatDate, getContributorLabel } from "@/lib/utils"
-import { Trash2, ChevronLeft, ChevronRight, Search, Image } from "lucide-react"
+import { Trash2, ChevronLeft, ChevronRight, Search, Image, Pencil } from "lucide-react"
+import Link from "next/link"
 
 type Transaction = {
   id: string; date: string; amount: number; description: string | null; photoPath: string | null
@@ -160,6 +161,9 @@ export default function TransactionsPage() {
                       <Image className="w-4 h-4" />
                     </button>
                   )}
+                  <Link href={`/transactions/${t.id}/edit`} className="text-gray-300 hover:text-blue-400 p-1">
+                    <Pencil className="w-4 h-4" />
+                  </Link>
                   <button onClick={() => deleteTransaction(t.id)} className="text-gray-200 hover:text-red-400 p-1">
                     <Trash2 className="w-4 h-4" />
                   </button>
