@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, Check, Loader2, ScanLine, X } from "lucide-react"
+import { Camera, Check, Loader2, ScanLine, X, FileText, Receipt } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
 
 type ScannedItem = {
@@ -15,8 +15,11 @@ type ScannedItem = {
 }
 
 type ScanResult = {
+  documentType: string
   merchant: string
   date: string
+  dueDate: string | null
+  reference: string | null
   items: ScannedItem[]
 }
 
@@ -71,6 +74,20 @@ export default function ScanPage() {
     setPhase("review")
   }
 
+  function triggerCapture() {
+    if (fileRef.current) {
+      fileRef.current.setAttribute("capture", "environment")
+      fileRef.current.click()
+    }
+  }
+
+  function triggerGallery() {
+    if (fileRef.current) {
+      fileRef.current.removeAttribute("capture")
+      fileRef.current.click()
+    }
+  }
+
   function toggleItem(index: number) {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, excluded: !item.excluded } : item))
   }
@@ -105,6 +122,7 @@ export default function ScanPage() {
 
   const activeCount = items.filter(i => !i.excluded).length
   const activeTotal = items.filter(i => !i.excluded).reduce((s, i) => s + i.amount, 0)
+  const isInvoice = result?.documentType === "invoice"
 
   return (
     <div className="max-w-lg mx-auto min-h-screen bg-black">
@@ -116,8 +134,24 @@ export default function ScanPage() {
             <X className="w-5 h-5" />
           </button>
           <div>
-            <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Quittung scannen</p>
-            {result && <p className="text-white text-sm font-bold mt-0.5">{result.merchant} · {result.date}</p>}
+            <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">
+              {isInvoice ? "Rechnung" : "Quittung scannen"}
+            </p>
+            {result && (
+              <div className="flex items-center gap-2 mt-0.5">
+                {isInvoice
+                  ? <FileText className="w-3.5 h-3.5 text-blue-400" />
+                  : <Receipt className="w-3.5 h-3.5 text-green-400" />
+                }
+                <p className="text-white text-sm font-bold">
+                  {result.merchant} · {result.date}
+                  {result.dueDate && <span className="text-orange-400 ml-2">fällig {result.dueDate}</span>}
+                </p>
+              </div>
+            )}
+            {result?.reference && (
+              <p className="text-zinc-600 text-xs mt-0.5">Ref: {result.reference}</p>
+            )}
           </div>
         </div>
 
@@ -128,20 +162,18 @@ export default function ScanPage() {
               <ScanLine className="w-10 h-10 text-green-500" />
             </div>
             <div className="text-center">
-              <p className="text-white font-bold text-lg">Quittung fotografieren</p>
-              <p className="text-zinc-500 text-sm mt-1">KI erkennt alle Posten automatisch</p>
+              <p className="text-white font-bold text-lg">Dokument scannen</p>
+              <p className="text-zinc-500 text-sm mt-1">Quittungen, Rechnungen, Belege</p>
             </div>
             {error && <p className="text-red-400 text-sm text-center bg-red-950/30 rounded-xl px-4 py-3">{error}</p>}
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
             <button
-              onClick={() => fileRef.current?.click()}
+              onClick={triggerCapture}
               className="bg-green-500 text-black font-black px-8 py-4 rounded-2xl flex items-center gap-2 active:scale-95 transition-all">
               <Camera className="w-5 h-5" />
               Foto aufnehmen
             </button>
-            <button
-              onClick={() => { if (fileRef.current) { fileRef.current.removeAttribute("capture"); fileRef.current.click() } }}
-              className="text-zinc-500 text-sm font-semibold">
+            <button onClick={triggerGallery} className="text-zinc-500 text-sm font-semibold">
               Aus Galerie wählen
             </button>
           </div>
@@ -151,7 +183,7 @@ export default function ScanPage() {
         {phase === "scanning" && (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <Loader2 className="w-10 h-10 text-green-500 animate-spin" />
-            <p className="text-white font-bold">KI liest Quittung…</p>
+            <p className="text-white font-bold">KI liest Dokument…</p>
             <p className="text-zinc-500 text-sm">Einen Moment bitte</p>
           </div>
         )}
@@ -159,6 +191,23 @@ export default function ScanPage() {
         {/* Review phase */}
         {phase === "review" && (
           <div className="space-y-6">
+
+            {/* Invoice info banner */}
+            {isInvoice && (
+              <div className="bg-blue-950/40 border border-blue-900/50 rounded-2xl px-4 py-3 flex items-start gap-3">
+                <FileText className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-blue-300 text-sm font-semibold">Rechnung erkannt</p>
+                  {result?.dueDate && (
+                    <p className="text-blue-400/70 text-xs mt-0.5">Zahlungsfrist: <span className="text-orange-400 font-semibold">{result.dueDate}</span></p>
+                  )}
+                  {result?.reference && (
+                    <p className="text-blue-400/70 text-xs">Referenz: {result.reference}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Von wem */}
             <div>
               <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Von wem</p>
@@ -196,12 +245,11 @@ export default function ScanPage() {
             {/* Items */}
             <div>
               <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">
-                Posten — tippe zum Ausschliessen
+                {isInvoice ? "Positionen" : "Posten — tippe zum Ausschliessen"}
               </p>
               <div className="space-y-2">
                 {items.map((item, i) => (
-                  <div key={i}
-                    className={`rounded-2xl transition-all overflow-hidden ${item.excluded ? "opacity-30" : ""}`}>
+                  <div key={i} className={`rounded-2xl transition-all overflow-hidden ${item.excluded ? "opacity-30" : ""}`}>
                     <div
                       className="flex items-center gap-3 bg-zinc-900 px-4 py-3 cursor-pointer active:bg-zinc-800"
                       onClick={() => toggleItem(i)}>

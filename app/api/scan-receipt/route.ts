@@ -39,25 +39,31 @@ export async function POST(req: NextRequest) {
           },
           {
             type: "text",
-            text: `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
+            text: `Analysiere dieses Zahlungsdokument (Quittung, Rechnung, Beleg, etc.) und extrahiere alle relevanten Informationen.
 
 Antworte NUR mit validem JSON, kein anderer Text:
 {
-  "merchant": "Name des Geschäfts oder Unbekannt",
+  "documentType": "receipt" oder "invoice",
+  "merchant": "Name des Ausstellers oder Unbekannt",
   "date": "YYYY-MM-DD",
+  "dueDate": "YYYY-MM-DD oder null (nur bei Rechnungen mit Zahlungsfrist)",
+  "reference": "Referenz-/Rechnungsnummer oder null",
   "items": [
-    { "name": "Artikelname", "amount": 12.50, "category": "Kategoriename" }
+    { "name": "Beschreibung", "amount": 12.50, "category": "Kategoriename" }
   ]
 }
 
 Verfügbare Kategorien: ${categoryNames}
 
 Regeln:
-- Datum: falls nicht lesbar, nimm ${today}
+- documentType: "receipt" für Kassenbelege/Quittungen, "invoice" für Rechnungen/Bills
+- date: Ausstellungsdatum, falls nicht lesbar nimm ${today}
+- dueDate: Zahlungsfrist bei Rechnungen, sonst null
+- reference: Rechnungsnummer, Zahlungsreferenz, ESR-Nummer etc., sonst null
 - Beträge: immer positiv, 2 Dezimalstellen
-- Wähle die passendste verfügbare Kategorie
-- Erfasse jeden einzelnen Posten separat
-- Keine Rabatte oder Zwischensummen als separate Posten`,
+- Bei Rechnungen: ein Posten mit dem Gesamtbetrag reicht, ausser Einzelpositionen sind klar aufgeführt
+- Bei Quittungen: jeden Posten einzeln erfassen, keine Rabatte oder Zwischensummen
+- Wähle die passendste verfügbare Kategorie`,
           },
         ],
       }],
@@ -69,9 +75,16 @@ Regeln:
   }
 
   const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) return NextResponse.json({ error: "Quittung konnte nicht gelesen werden" }, { status: 422 })
+  if (!jsonMatch) return NextResponse.json({ error: "Dokument konnte nicht gelesen werden" }, { status: 422 })
 
-  let parsed: { merchant: string; date: string; items: { name: string; amount: number; category: string }[] }
+  let parsed: {
+    documentType: string
+    merchant: string
+    date: string
+    dueDate: string | null
+    reference: string | null
+    items: { name: string; amount: number; category: string }[]
+  }
   try {
     parsed = JSON.parse(jsonMatch[0])
   } catch {
@@ -88,5 +101,12 @@ Regeln:
     }
   })
 
-  return NextResponse.json({ merchant: parsed.merchant, date: parsed.date, items: itemsWithIds })
+  return NextResponse.json({
+    documentType: parsed.documentType,
+    merchant: parsed.merchant,
+    date: parsed.date,
+    dueDate: parsed.dueDate ?? null,
+    reference: parsed.reference ?? null,
+    items: itemsWithIds,
+  })
 }
