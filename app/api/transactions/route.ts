@@ -10,13 +10,14 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()))
   const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1))
+  const accountId = searchParams.get("accountId")
 
   const start = new Date(year, month - 1, 1)
   const end = new Date(year, month, 1)
 
   const transactions = await prisma.transaction.findMany({
-    where: { date: { gte: start, lt: end } },
-    include: { category: true, user: { select: { id: true, name: true, color: true } } },
+    where: { date: { gte: start, lt: end }, ...(accountId ? { accountId } : {}) },
+    include: { category: true, user: { select: { id: true, name: true, color: true } }, account: { select: { id: true, name: true, icon: true, color: true } } },
     orderBy: { date: "desc" },
   })
 

@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { SignOutButton } from "./sign-out-button"
 import Link from "next/link"
-import { RefreshCw, Target, ChevronRight } from "lucide-react"
+import { RefreshCw, Target, ChevronRight, Users } from "lucide-react"
 
 export default async function MehrPage() {
   const session = await getServerSession(authOptions)
@@ -32,11 +32,18 @@ export default async function MehrPage() {
             <span className="text-sm font-semibold text-gray-900 flex-1">Regeln</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </Link>
-          <Link href="/goals" className="flex items-center gap-4 px-5 py-4">
+          <Link href="/goals" className="flex items-center gap-4 px-5 py-4 border-b border-gray-100">
             <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
               <Target className="w-4 h-4 text-gray-600" />
             </div>
             <span className="text-sm font-semibold text-gray-900 flex-1">Sparziele</span>
+            <ChevronRight className="w-4 h-4 text-gray-300" />
+          </Link>
+          <Link href="/konto/konto_gemeinsam" className="flex items-center gap-4 px-5 py-4">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#8b5cf620" }}>
+              <Users className="w-4 h-4" style={{ color: "#8b5cf6" }} />
+            </div>
+            <span className="text-sm font-semibold text-gray-900 flex-1">Gemeinsames Konto</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </Link>
         </div>
