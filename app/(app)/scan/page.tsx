@@ -12,6 +12,7 @@ type ScannedItem = {
   categoryId: string
   categoryName: string
   excluded: boolean
+  contributor: string
 }
 
 type ScanResult = {
@@ -25,6 +26,11 @@ type ScanResult = {
 
 type Category = { id: string; name: string; icon: string; type: string }
 
+const PEOPLE = [
+  { value: "", label: "Ich" },
+  ...CONTRIBUTORS.map(c => ({ value: c.value, label: c.label.split(" ")[0] })),
+]
+
 export default function ScanPage() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -33,7 +39,6 @@ export default function ScanPage() {
   const [result, setResult] = useState<ScanResult | null>(null)
   const [items, setItems] = useState<ScannedItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [contributor, setContributor] = useState("")
   const [accountId, setAccountId] = useState("")
   const [accounts, setAccounts] = useState<{ id: string; name: string; icon: string; color: string }[]>([])
   const [saving, setSaving] = useState(false)
@@ -68,7 +73,7 @@ export default function ScanPage() {
     }
 
     const data: ScanResult = await scanRes.json()
-    const mappedItems: ScannedItem[] = data.items.map(item => ({ ...item, excluded: false }))
+    const mappedItems: ScannedItem[] = data.items.map(item => ({ ...item, excluded: false, contributor: "" }))
     setResult(data)
     setItems(mappedItems)
     setPhase("review")
@@ -96,6 +101,10 @@ export default function ScanPage() {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, categoryId } : item))
   }
 
+  function updateContributor(index: number, contributor: string) {
+    setItems(prev => prev.map((item, i) => i === index ? { ...item, contributor } : item))
+  }
+
   async function handleSave() {
     const toSave = items.filter(i => !i.excluded)
     if (toSave.length === 0) return
@@ -110,7 +119,7 @@ export default function ScanPage() {
           categoryId: item.categoryId,
           description: item.name,
           date: result?.date ?? new Date().toISOString().split("T")[0],
-          contributor: contributor || null,
+          contributor: item.contributor || null,
           accountId: accountId || null,
         }),
       })
@@ -208,22 +217,6 @@ export default function ScanPage() {
               </div>
             )}
 
-            {/* Von wem */}
-            <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Von wem</p>
-              <div className="grid grid-cols-2 gap-2">
-                {CONTRIBUTORS.map(c => (
-                  <button key={c.value} type="button"
-                    onClick={() => setContributor(contributor === c.value ? "" : c.value)}
-                    style={contributor === c.value ? { backgroundColor: c.color } : {}}
-                    className={`rounded-2xl py-3 px-3 text-sm font-bold transition-all text-left ${contributor === c.value ? "text-white" : "bg-zinc-900 text-zinc-400"}`}>
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-zinc-700 text-xs mt-2">Leer lassen = du selbst</p>
-            </div>
-
             {/* Konto */}
             {accounts.length > 0 && (
               <div>
@@ -245,11 +238,13 @@ export default function ScanPage() {
             {/* Items */}
             <div>
               <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">
-                {isInvoice ? "Positionen" : "Posten — tippe zum Ausschliessen"}
+                Posten — tippe zum Ausschliessen
               </p>
               <div className="space-y-2">
                 {items.map((item, i) => (
-                  <div key={i} className={`rounded-2xl transition-all overflow-hidden ${item.excluded ? "opacity-30" : ""}`}>
+                  <div key={i} className={`rounded-2xl overflow-hidden transition-all ${item.excluded ? "opacity-30" : ""}`}>
+
+                    {/* Name + Betrag */}
                     <div
                       className="flex items-center gap-3 bg-zinc-900 px-4 py-3 cursor-pointer active:bg-zinc-800"
                       onClick={() => toggleItem(i)}>
@@ -263,16 +258,38 @@ export default function ScanPage() {
                         CHF {item.amount.toFixed(2)}
                       </p>
                     </div>
+
                     {!item.excluded && (
-                      <select
-                        value={item.categoryId}
-                        onChange={e => updateCategory(i, e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                        className="w-full bg-zinc-800 border-t border-zinc-700 px-4 py-2.5 text-xs text-zinc-400 focus:outline-none">
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-                        ))}
-                      </select>
+                      <>
+                        {/* Kategorie */}
+                        <select
+                          value={item.categoryId}
+                          onChange={e => updateCategory(i, e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          className="w-full bg-zinc-800 border-t border-zinc-700 px-4 py-2.5 text-xs text-zinc-400 focus:outline-none">
+                          {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                          ))}
+                        </select>
+
+                        {/* Wer */}
+                        <div className="bg-zinc-800 border-t border-zinc-700 px-4 py-2.5 flex gap-2 flex-wrap">
+                          {PEOPLE.map(p => {
+                            const contrib = CONTRIBUTORS.find(c => c.value === p.value)
+                            const isActive = item.contributor === p.value
+                            return (
+                              <button
+                                key={p.value}
+                                type="button"
+                                onClick={e => { e.stopPropagation(); updateContributor(i, p.value) }}
+                                style={isActive && contrib ? { backgroundColor: contrib.color } : isActive ? { backgroundColor: "#6366f1" } : {}}
+                                className={`text-xs px-3 py-1 rounded-full font-bold transition-all ${isActive ? "text-white" : "bg-zinc-700 text-zinc-400"}`}>
+                                {p.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </>
                     )}
                   </div>
                 ))}
