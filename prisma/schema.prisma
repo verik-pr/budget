@@ -32,9 +32,21 @@ model Account {
   name         String
   icon         String        @default("🏦")
   color        String        @default("#6366f1")
-  type         String        @default("personal") // "personal" | "shared"
+  type         String        @default("personal") // "personal" | "shared" | "credit"
+  dueDay       Int?          // day of month when credit card bill is due
+  ownerName    String?       // for credit cards: which person owns it
   transactions Transaction[]
   createdAt    DateTime      @default(now())
+}
+
+model Provision {
+  id              String   @id @default(cuid())
+  name            String
+  icon            String   @default("📅")
+  totalAmount     Float
+  frequencyMonths Int      @default(12)  // 1=monthly, 3=quarterly, 6=half-yearly, 12=yearly
+  nextDueDate     String                 // YYYY-MM-DD
+  createdAt       DateTime @default(now())
 }
 
 model Transaction {
