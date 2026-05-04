@@ -44,14 +44,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
   const lastStart = new Date(periodStart.getFullYear(), periodStart.getMonth() - 1, 24)
 
-  const accounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } })
+  const allAccounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } })
 
-  // Default: find personal account matching user's first name
+  // Only show the user's own personal account + shared accounts
   const firstName = session?.user?.name?.split(" ")[0] ?? ""
-  const personalAccount = accounts.find(a =>
+  const personalAccount = allAccounts.find(a =>
     a.type === "personal" && a.name.toLowerCase().includes(firstName.toLowerCase())
   )
-  const selectedId = konto ?? personalAccount?.id ?? accounts[0]?.id
+  const visibleAccounts = allAccounts.filter(a =>
+    a.type === "shared" || a.id === personalAccount?.id
+  )
+  const selectedId = konto ?? personalAccount?.id ?? visibleAccounts[0]?.id
 
   const [transactions, lastMonth] = await Promise.all([
     prisma.transaction.findMany({
@@ -81,7 +84,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <div className="bg-black px-6 pt-safe pb-10">
         <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-4">{monthLabel}</p>
 
-        <AccountSelector accounts={accounts} selected={selectedId} />
+        <AccountSelector accounts={visibleAccounts} selected={selectedId} />
 
         <p className="text-white text-5xl font-black tracking-tight tabular-nums">
           {formatCHF(balance)}
