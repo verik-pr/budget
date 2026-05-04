@@ -5,6 +5,7 @@ export async function register() {
     const migrations = [
       `ALTER TABLE "Transaction" ADD COLUMN "sharedWith" TEXT`,
       `ALTER TABLE "Transaction" ADD COLUMN "sharedRatio" REAL`,
+      `ALTER TABLE "Transaction" ADD COLUMN "note" TEXT`,
     ]
     for (const sql of migrations) {
       try {
