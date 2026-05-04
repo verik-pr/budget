@@ -42,6 +42,7 @@ export default function ScanPage() {
   const [accounts, setAccounts] = useState<{ id: string; name: string; icon: string; color: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [saveError, setSaveError] = useState("")
 
   // Determine current user and partner
   const firstName = session?.user?.name?.split(" ")[0]?.toLowerCase() ?? ""
@@ -60,12 +61,13 @@ export default function ScanPage() {
     const [scanRes, catRes, accRes] = await Promise.all([
       (async () => { const fd = new FormData(); fd.append("file", file); return fetch("/api/scan-receipt", { method: "POST", body: fd }) })(),
       fetch("/api/categories"),
-      fetch("/api/accounts"),
+      fetch("/api/accounts?mine=true"),
     ])
 
-    const [cats, accs] = await Promise.all([catRes.json(), accRes.json()])
+    const [cats, { accounts: accs, defaultId }] = await Promise.all([catRes.json(), accRes.json()])
     setCategories(cats)
     setAccounts(accs)
+    if (defaultId) setAccountId(defaultId)
 
     if (!scanRes.ok) {
       const err = await scanRes.json()
@@ -103,26 +105,30 @@ export default function ScanPage() {
     const toSave = items.filter(i => !i.excluded)
     if (toSave.length === 0) return
     setSaving(true)
+    setSaveError("")
 
-    await Promise.all(toSave.map(item =>
-      fetch("/api/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: item.amount,
-          categoryId: item.categoryId,
-          description: item.name,
-          date: result?.date ?? new Date().toISOString().split("T")[0],
-          contributor: item.contributor || null,
-          accountId: accountId || null,
-          sharedWith: item.sharedWith,
-          sharedRatio: item.sharedRatio,
-        }),
-      })
-    ))
-
-    router.push("/dashboard")
-    router.refresh()
+    try {
+      const results = await Promise.all(toSave.map(item =>
+        fetch("/api/transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: item.amount,
+            categoryId: item.categoryId,
+            description: item.name,
+            date: result?.date ?? new Date().toISOString().split("T")[0],
+            contributor: item.contributor || null,
+            accountId: accountId || null,
+            ...(item.sharedWith ? { sharedWith: item.sharedWith, sharedRatio: item.sharedRatio } : {}),
+          }),
+        })
+      ))
+      if (results.some(r => !r.ok)) throw new Error("Speichern fehlgeschlagen")
+      router.push("/dashboard")
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Fehler beim Speichern")
+      setSaving(false)
+    }
   }
 
   const activeCount = items.filter(i => !i.excluded).length
@@ -279,6 +285,7 @@ export default function ScanPage() {
 
       {phase === "review" && (
         <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-900 px-6 py-4 safe-bottom">
+          {saveError && <p className="text-red-400 text-xs text-center mb-2">{saveError}</p>}
           <div className="max-w-lg mx-auto flex items-center gap-4">
             <div className="flex-1">
               <p className="text-white font-bold tabular-nums">CHF {activeTotal.toFixed(2)}</p>

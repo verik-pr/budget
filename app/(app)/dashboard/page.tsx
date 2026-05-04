@@ -56,14 +56,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   )
   const selectedId = konto ?? personalAccount?.id ?? visibleAccounts[0]?.id
 
+  // When viewing personal account, also include transactions with no account assigned
+  const isPersonal = selectedId === personalAccount?.id
+  const accountFilter = isPersonal
+    ? { OR: [{ accountId: selectedId }, { accountId: null }] }
+    : { accountId: selectedId }
+
   const [transactions, lastMonth] = await Promise.all([
     prisma.transaction.findMany({
-      where: { date: { gte: start, lt: end }, accountId: selectedId },
+      where: { date: { gte: start, lt: end }, ...accountFilter },
       include: { category: true, user: { select: { id: true, name: true, color: true } }, account: { select: { id: true, name: true, icon: true, color: true } } },
       orderBy: { date: "desc" },
     }),
     prisma.transaction.findMany({
-      where: { date: { gte: lastStart, lt: start }, accountId: selectedId },
+      where: { date: { gte: lastStart, lt: start }, ...accountFilter },
       include: { category: true },
     }),
   ])
