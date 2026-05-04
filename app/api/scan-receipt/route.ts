@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import OpenAI from "openai"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY nicht konfiguriert" }, { status: 503 })
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY nicht konfiguriert" }, { status: 503 })
   }
 
   const formData = await req.formData()
@@ -18,27 +18,20 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer()
   const base64 = Buffer.from(bytes).toString("base64")
-  const mediaType = file.type || "image/jpeg"
+  const mimeType = (file.type || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp"
 
   const categories = await prisma.category.findMany()
   const categoryNames = categories.map(c => c.name).join(", ")
   const today = new Date().toISOString().split("T")[0]
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
 
-  const response = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    max_tokens: 1024,
-    messages: [{
-      role: "user",
-      content: [
-        {
-          type: "image_url",
-          image_url: { url: `data:${mediaType};base64,${base64}`, detail: "high" },
-        },
-        {
-          type: "text",
-          text: `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
+  const result = await model.generateContent([
+    {
+      inlineData: { data: base64, mimeType },
+    },
+    `Analysiere diese Quittung und extrahiere alle Positionen mit Preisen.
 
 Antworte NUR mit validem JSON, kein anderer Text:
 {
@@ -57,12 +50,9 @@ Regeln:
 - Wähle die passendste verfügbare Kategorie
 - Erfasse jeden einzelnen Posten separat
 - Keine Rabatte oder Zwischensummen als separate Posten`,
-        },
-      ],
-    }],
-  })
+  ])
 
-  const text = response.choices[0]?.message?.content ?? ""
+  const text = result.response.text()
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     return NextResponse.json({ error: "Quittung konnte nicht gelesen werden" }, { status: 422 })
