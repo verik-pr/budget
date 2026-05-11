@@ -11,6 +11,8 @@ import { SkeletonList } from "@/components/skeleton"
 type Transaction = {
   amount: number
   contributor: string | null
+  sharedWith: string | null
+  sharedRatio: number | null
   user: { name: string }
   category: { id: string; name: string; icon: string; type: string; budget: number | null }
 }
@@ -199,9 +201,10 @@ export default function StatsPage() {
     }, {} as Record<string, CategoryStat>)
   ).sort((a, b) => b.total - a.total)
 
-  const byPerson: PersonStat[] = (() => {
+  const sharedExpenses = expenses.filter(t => t.sharedWith)
+  const bySharedPerson: PersonStat[] = (() => {
     const map: Record<string, PersonStat> = {}
-    for (const t of expenses) {
+    for (const t of sharedExpenses) {
       const key = t.contributor ?? t.user.name
       if (!map[key]) {
         if (t.contributor) {
@@ -217,7 +220,9 @@ export default function StatsPage() {
     }
     return Object.values(map).sort((a, b) => b.total - a.total)
   })()
-  const personTotal = byPerson.reduce((s, p) => s + p.total, 0)
+  const sharedTotal = bySharedPerson.reduce((s, p) => s + p.total, 0)
+  const sharedDiff = bySharedPerson.length >= 2 ? bySharedPerson[0].total - bySharedPerson[1].total : 0
+  const turnPerson = bySharedPerson.length >= 2 ? bySharedPerson[bySharedPerson.length - 1] : null
 
   const totalMonthly = provisions.reduce((s, p) => s + monthlyAmount(p), 0)
   const nextDueDate = (acc: Account & { balance: number }) => {
@@ -269,14 +274,14 @@ export default function StatsPage() {
         {/* ── Ausgaben / Einnahmen tabs ── */}
         {(tab === "expense" || tab === "income") && (
           <>
-            {!loading && byPerson.length > 1 && tab === "expense" && (
+            {!loading && bySharedPerson.length > 0 && tab === "expense" && (
               <div>
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Wer hat mehr ausgegeben</p>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Gemeinsame Auslagen</p>
                 <div className="bg-white rounded-3xl overflow-hidden">
-                  {byPerson.map((p, i) => {
-                    const pct = personTotal > 0 ? (p.total / personTotal) * 100 : 0
+                  {bySharedPerson.map((p, i) => {
+                    const pct = sharedTotal > 0 ? (p.total / sharedTotal) * 100 : 0
                     return (
-                      <div key={p.label} className={`px-5 py-4 ${i < byPerson.length - 1 ? "border-b border-gray-100" : ""}`}>
+                      <div key={p.label} className={`px-5 py-4 ${i < bySharedPerson.length - 1 ? "border-b border-gray-100" : ""}`}>
                         <div className="flex items-center gap-3 mb-2">
                           <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0" style={{ backgroundColor: p.color }}>{p.label[0]}</div>
                           <p className="text-sm font-semibold text-gray-900 flex-1">{p.label}</p>
@@ -291,6 +296,25 @@ export default function StatsPage() {
                       </div>
                     )
                   })}
+                  {turnPerson && (
+                    <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
+                      {sharedDiff < 0.5 ? (
+                        <p className="text-xs text-center text-gray-500 font-semibold">Alles ausgeglichen 🤝</p>
+                      ) : (
+                        <p className="text-xs text-center text-gray-600">
+                          <span className="font-bold" style={{ color: turnPerson.color }}>{turnPerson.label}</span>
+                          {" "}ist dran · <span className="tabular-nums">{formatCHF(sharedDiff)}</span> Unterschied
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {bySharedPerson.length === 1 && (
+                    <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
+                      <p className="text-xs text-center text-gray-500">
+                        Nur <span className="font-bold" style={{ color: bySharedPerson[0].color }}>{bySharedPerson[0].label}</span> hat bisher ausgelegt
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
