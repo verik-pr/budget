@@ -5,12 +5,14 @@ import { useRouter, useParams } from "next/navigation"
 import { Check, ArrowLeft } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
 import { Skeleton } from "@/components/skeleton"
+import { useToast } from "@/components/toast"
 
 type Category = { id: string; name: string; icon: string; type: string }
 type Account = { id: string; name: string; icon: string; color: string }
 
 export default function EditTransactionPage() {
   const router = useRouter()
+  const toast = useToast()
   const { id } = useParams<{ id: string }>()
 
   const [categories, setCategories] = useState<Category[]>([])
@@ -48,12 +50,19 @@ export default function EditTransactionPage() {
     e.preventDefault()
     if (!amount || !categoryId || !date) return
     setSaving(true)
-    await fetch(`/api/transactions/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount, categoryId, description, date, contributor: contributor || null, accountId: accountId || null }),
-    })
-    router.back()
+    try {
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, categoryId, description, date, contributor: contributor || null, accountId: accountId || null }),
+      })
+      if (!res.ok) throw new Error()
+      toast("Buchung aktualisiert")
+      router.back()
+    } catch {
+      setSaving(false)
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   const filtered = categories.filter(c => c.type === type)

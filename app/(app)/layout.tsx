@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { SessionProvider } from "@/components/session-provider"
 import { BottomNav } from "@/components/nav"
 import { ConfirmProvider } from "@/components/confirm-sheet"
+import { ToastProvider } from "@/components/toast"
 
 export const viewport: Viewport = {
   themeColor: "#000000",
@@ -16,12 +17,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionProvider session={session}>
-      <ConfirmProvider>
-        <div className="app-root">
-          {children}
-        </div>
-        <BottomNav />
-      </ConfirmProvider>
+      <ToastProvider>
+        <ConfirmProvider>
+          <div className="app-root">
+            {children}
+          </div>
+          <BottomNav />
+        </ConfirmProvider>
+      </ToastProvider>
     </SessionProvider>
   )
 }

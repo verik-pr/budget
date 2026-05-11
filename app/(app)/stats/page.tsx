@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { formatCHF } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, X, Check } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
+import { useToast } from "@/components/toast"
+import { PullToRefresh } from "@/components/pull-to-refresh"
 
 type Transaction = {
   amount: number
@@ -103,6 +105,7 @@ function ProvisionForm({ initial, onSave, onCancel }: {
 export default function StatsPage() {
   const { data: session } = useSession()
   const confirm = useConfirm()
+  const toast = useToast()
   const [periodStart, setPeriodStart] = useState<Date>(initialPeriodStart)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState<string | null>(null)
@@ -138,45 +141,88 @@ export default function StatsPage() {
       })
   }, [])
 
-  useEffect(() => {
+  const fetchTransactions = useCallback(async (showLoader: boolean) => {
     if (accountId === undefined) return
-    setLoading(true)
+    if (showLoader) setLoading(true)
     const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
     const params = new URLSearchParams({
       startDate: periodStart.toISOString(),
       endDate: end.toISOString(),
       ...(accountId ? { accountId } : {}),
     })
-    fetch(`/api/transactions?${params}`)
-      .then(r => r.json())
-      .then(data => { setTransactions(data); setLoading(false) })
-  }, [periodStart, accountId])
+    try {
+      const res = await fetch(`/api/transactions?${params}`)
+      if (!res.ok) throw new Error()
+      setTransactions(await res.json())
+    } catch {
+      toast("Konnte Statistik nicht laden", "error")
+    } finally {
+      setLoading(false)
+    }
+  }, [periodStart, accountId, toast])
+
+  useEffect(() => { fetchTransactions(true) }, [fetchTransactions])
+
+  const fetchProvisions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/provisions")
+      if (!res.ok) throw new Error()
+      setProvisions(await res.json())
+    } catch {
+      toast("Konnte Rückstellungen nicht laden", "error")
+    }
+  }, [toast])
 
   useEffect(() => {
-    if (tab === "planung") {
-      fetch("/api/provisions").then(r => r.json()).then(setProvisions)
-    }
-  }, [tab])
+    if (tab === "planung") fetchProvisions()
+  }, [tab, fetchProvisions])
+
+  async function refresh() {
+    await Promise.all([
+      fetchTransactions(false),
+      tab === "planung" ? fetchProvisions() : Promise.resolve(),
+    ])
+  }
 
   async function createProvision(data: Omit<Provision, "id">) {
-    const res = await fetch("/api/provisions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
-    const p = await res.json()
-    setProvisions(prev => [...prev, p])
-    setShowForm(false)
+    try {
+      const res = await fetch("/api/provisions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+      if (!res.ok) throw new Error()
+      const p = await res.json()
+      setProvisions(prev => [...prev, p])
+      setShowForm(false)
+      toast("Rückstellung angelegt")
+    } catch {
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   async function updateProvision(id: string, data: Omit<Provision, "id">) {
-    const res = await fetch(`/api/provisions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
-    const p = await res.json()
-    setProvisions(prev => prev.map(x => x.id === id ? p : x))
-    setEditingId(null)
+    try {
+      const res = await fetch(`/api/provisions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+      if (!res.ok) throw new Error()
+      const p = await res.json()
+      setProvisions(prev => prev.map(x => x.id === id ? p : x))
+      setEditingId(null)
+      toast("Rückstellung aktualisiert")
+    } catch {
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   async function deleteProvision(id: string) {
     const ok = await confirm({ title: "Rückstellung löschen?", confirmLabel: "Löschen", destructive: true })
     if (!ok) return
-    await fetch(`/api/provisions/${id}`, { method: "DELETE" })
+    const backup = provisions
     setProvisions(prev => prev.filter(x => x.id !== id))
+    try {
+      const res = await fetch(`/api/provisions/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast("Rückstellung gelöscht")
+    } catch {
+      setProvisions(backup)
+      toast("Konnte nicht gelöscht werden", "error")
+    }
   }
 
   function prevPeriod() { setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() - 1, 24)) }
@@ -235,6 +281,7 @@ export default function StatsPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="max-w-lg mx-auto">
       <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
         {tab !== "planung" && (
@@ -467,5 +514,6 @@ export default function StatsPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   )
 }

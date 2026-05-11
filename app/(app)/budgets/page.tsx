@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { formatCHF } from "@/lib/utils"
 import { SkeletonList } from "@/components/skeleton"
+import { useToast } from "@/components/toast"
 
 type Category = { id: string; name: string; icon: string; type: string; budget: number | null; spent: number }
 
@@ -19,6 +20,7 @@ function periodRange() {
 
 export default function BudgetsPage() {
   const router = useRouter()
+  const toast = useToast()
   const [categories, setCategories] = useState<Category[]>([])
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -44,13 +46,20 @@ export default function BudgetsPage() {
     const newBudget = raw === "" ? null : parseFloat(raw)
     if (newBudget === cat.budget) return
     setSavingId(cat.id)
-    const res = await fetch(`/api/categories/${cat.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ budget: newBudget }),
-    })
-    const updated = await res.json()
-    setCategories(cs => cs.map(c => c.id === cat.id ? { ...c, budget: updated.budget } : c))
+    try {
+      const res = await fetch(`/api/categories/${cat.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budget: newBudget }),
+      })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setCategories(cs => cs.map(c => c.id === cat.id ? { ...c, budget: updated.budget } : c))
+      toast(newBudget === null ? "Budget entfernt" : `Budget gesetzt: ${formatCHF(newBudget)}`)
+    } catch {
+      setDrafts(d => ({ ...d, [cat.id]: cat.budget?.toString() ?? "" }))
+      toast("Konnte nicht speichern", "error")
+    }
     setSavingId(null)
   }
 

@@ -6,6 +6,7 @@ import { formatCHF } from "@/lib/utils"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
+import { useToast } from "@/components/toast"
 
 type Goal = { id: string; name: string; icon: string; targetAmount: number; savedAmount: number }
 
@@ -66,6 +67,7 @@ function GoalForm({ onSave, onCancel }: {
 export default function GoalsPage() {
   const router = useRouter()
   const confirm = useConfirm()
+  const toast = useToast()
   const [goals, setGoals] = useState<Goal[]>([])
   const [showForm, setShowForm] = useState(false)
   const [adding, setAdding] = useState<Record<string, string>>({})
@@ -79,34 +81,54 @@ export default function GoalsPage() {
   }, [])
 
   async function createGoal(data: { name: string; icon: string; targetAmount: string }) {
-    const res = await fetch("/api/savings-goals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-    const goal = await res.json()
-    setGoals(g => [...g, goal])
-    setShowForm(false)
+    try {
+      const res = await fetch("/api/savings-goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error()
+      const goal = await res.json()
+      setGoals(g => [...g, goal])
+      setShowForm(false)
+      toast("Sparziel angelegt")
+    } catch {
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   async function addAmount(goal: Goal) {
     const add = parseFloat(adding[goal.id] || "0")
     if (!add || add <= 0) return
-    const res = await fetch(`/api/savings-goals/${goal.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ savedAmount: goal.savedAmount + add }),
-    })
-    const updated = await res.json()
-    setGoals(gs => gs.map(g => g.id === goal.id ? updated : g))
-    setAdding(a => ({ ...a, [goal.id]: "" }))
+    try {
+      const res = await fetch(`/api/savings-goals/${goal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ savedAmount: goal.savedAmount + add }),
+      })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setGoals(gs => gs.map(g => g.id === goal.id ? updated : g))
+      setAdding(a => ({ ...a, [goal.id]: "" }))
+      toast(`+${add.toFixed(2)} CHF eingezahlt`)
+    } catch {
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   async function deleteGoal(id: string) {
     const ok = await confirm({ title: "Sparziel löschen?", confirmLabel: "Löschen", destructive: true })
     if (!ok) return
-    await fetch(`/api/savings-goals/${id}`, { method: "DELETE" })
+    const backup = goals
     setGoals(gs => gs.filter(g => g.id !== id))
+    try {
+      const res = await fetch(`/api/savings-goals/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast("Sparziel gelöscht")
+    } catch {
+      setGoals(backup)
+      toast("Konnte nicht gelöscht werden", "error")
+    }
   }
 
   return (

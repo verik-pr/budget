@@ -6,6 +6,7 @@ import { formatCHF } from "@/lib/utils"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
+import { useToast } from "@/components/toast"
 
 type Category = { id: string; name: string; icon: string; type: string }
 type Rule = {
@@ -106,6 +107,7 @@ function RuleForm({ categories, onSave, onCancel }: {
 export default function RecurringPage() {
   const router = useRouter()
   const confirm = useConfirm()
+  const toast = useToast()
   const [rules, setRules] = useState<Rule[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -123,31 +125,52 @@ export default function RecurringPage() {
   }, [])
 
   async function addRule(data: { name: string; amount: string; categoryId: string; dayOfMonth: string }) {
-    const res = await fetch("/api/recurring", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-    const rule = await res.json()
-    setRules(r => [...r, rule])
-    setShowForm(false)
+    try {
+      const res = await fetch("/api/recurring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error()
+      const rule = await res.json()
+      setRules(r => [...r, rule])
+      setShowForm(false)
+      toast("Regel angelegt")
+    } catch {
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   async function deleteRule(id: string) {
     const ok = await confirm({ title: "Regel löschen?", confirmLabel: "Löschen", destructive: true })
     if (!ok) return
-    await fetch(`/api/recurring/${id}`, { method: "DELETE" })
+    const backup = rules
     setRules(r => r.filter(r => r.id !== id))
+    try {
+      const res = await fetch(`/api/recurring/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast("Regel gelöscht")
+    } catch {
+      setRules(backup)
+      toast("Konnte nicht gelöscht werden", "error")
+    }
   }
 
   async function toggleRule(id: string, active: boolean) {
-    const res = await fetch(`/api/recurring/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !active }),
-    })
-    const updated = await res.json()
-    setRules(rs => rs.map(r => r.id === id ? updated : r))
+    setRules(rs => rs.map(r => r.id === id ? { ...r, active: !active } : r))
+    try {
+      const res = await fetch(`/api/recurring/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !active }),
+      })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setRules(rs => rs.map(r => r.id === id ? updated : r))
+    } catch {
+      setRules(rs => rs.map(r => r.id === id ? { ...r, active } : r))
+      toast("Konnte nicht aktualisieren", "error")
+    }
   }
 
   return (

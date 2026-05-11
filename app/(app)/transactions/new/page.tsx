@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation"
 import { Camera, X, Check, ScanLine, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { CONTRIBUTORS } from "@/lib/utils"
+import { useToast } from "@/components/toast"
 
 type Category = { id: string; name: string; icon: string; type: string }
 type Account = { id: string; name: string; icon: string; color: string; type: string }
 
 export default function NewTransactionPage() {
   const router = useRouter()
+  const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [type, setType] = useState<"expense" | "income">("expense")
@@ -50,22 +52,30 @@ export default function NewTransactionPage() {
     if (!amount || !categoryId || !date) return
     setLoading(true)
 
-    let photoPath: string | null = null
-    if (photoFile) {
-      const fd = new FormData()
-      fd.append("file", photoFile)
-      const res = await fetch("/api/upload", { method: "POST", body: fd })
-      const data = await res.json()
-      photoPath = data.filename
-    }
+    try {
+      let photoPath: string | null = null
+      if (photoFile) {
+        const fd = new FormData()
+        fd.append("file", photoFile)
+        const upRes = await fetch("/api/upload", { method: "POST", body: fd })
+        if (!upRes.ok) throw new Error("upload")
+        const data = await upRes.json()
+        photoPath = data.filename
+      }
 
-    await fetch("/api/transactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: parseFloat(amount), categoryId, description, date, photoPath, contributor: contributor || null, accountId: accountId || null }),
-    })
-    router.push("/dashboard")
-    router.refresh()
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: parseFloat(amount), categoryId, description, date, photoPath, contributor: contributor || null, accountId: accountId || null }),
+      })
+      if (!res.ok) throw new Error()
+      toast("Buchung gespeichert")
+      router.push("/dashboard")
+      router.refresh()
+    } catch {
+      setLoading(false)
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   return (

@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { formatCHF } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { TransactionList, type TxItem } from "@/components/transaction-list"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
+import { useToast } from "@/components/toast"
+import { PullToRefresh } from "@/components/pull-to-refresh"
 
 type Account = { id: string; name: string; icon: string; color: string }
 
@@ -18,6 +20,7 @@ function initialPeriodStart() {
 
 export default function TransactionsPage() {
   const confirm = useConfirm()
+  const toast = useToast()
   const [periodStart, setPeriodStart] = useState<Date>(initialPeriodStart)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState<string | null>(null)
@@ -36,19 +39,28 @@ export default function TransactionsPage() {
       })
   }, [])
 
-  useEffect(() => {
+  const fetchTransactions = useCallback(async (showLoader: boolean) => {
     if (accountId === undefined) return
-    setLoading(true)
+    if (showLoader) setLoading(true)
     const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
     const params = new URLSearchParams({
       startDate: periodStart.toISOString(),
       endDate: end.toISOString(),
       ...(accountId ? { accountId } : {}),
     })
-    fetch(`/api/transactions?${params}`)
-      .then(r => r.json())
-      .then(data => { setTransactions(data); setLoading(false) })
-  }, [periodStart, accountId])
+    try {
+      const res = await fetch(`/api/transactions?${params}`)
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setTransactions(data)
+    } catch {
+      toast("Konnte Buchungen nicht laden", "error")
+    } finally {
+      setLoading(false)
+    }
+  }, [periodStart, accountId, toast])
+
+  useEffect(() => { fetchTransactions(true) }, [fetchTransactions])
 
   function prevPeriod() { setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() - 1, 24)) }
   function nextPeriod() { setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() + 1, 24)) }
@@ -56,8 +68,16 @@ export default function TransactionsPage() {
   async function deleteTransaction(id: string) {
     const ok = await confirm({ title: "Buchung löschen?", confirmLabel: "Löschen", destructive: true })
     if (!ok) return
-    await fetch(`/api/transactions/${id}`, { method: "DELETE" })
+    const backup = transactions
     setTransactions(ts => ts.filter(t => t.id !== id))
+    try {
+      const res = await fetch(`/api/transactions/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast("Buchung gelöscht")
+    } catch {
+      setTransactions(backup)
+      toast("Konnte nicht gelöscht werden", "error")
+    }
   }
 
   const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
@@ -72,6 +92,7 @@ export default function TransactionsPage() {
   const expenses = transactions.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
 
   return (
+    <PullToRefresh onRefresh={() => fetchTransactions(false)}>
     <div className="max-w-lg mx-auto">
       {lightbox && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
@@ -140,5 +161,6 @@ export default function TransactionsPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   )
 }

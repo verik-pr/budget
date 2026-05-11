@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Trash2, Pencil, Check } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
+import { useToast } from "@/components/toast"
 
 type CreditAccount = {
   id: string
@@ -96,6 +97,7 @@ function CardForm({ initial, onSave, onCancel }: {
 export default function KreditkartenPage() {
   const router = useRouter()
   const confirm = useConfirm()
+  const toast = useToast()
   const [cards, setCards] = useState<CreditAccount[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -111,32 +113,52 @@ export default function KreditkartenPage() {
   }, [])
 
   async function createCard(data: Omit<CreditAccount, "id">) {
-    const res = await fetch("/api/accounts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-    const card = await res.json()
-    setCards(prev => [...prev, card])
-    setShowForm(false)
+    try {
+      const res = await fetch("/api/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error()
+      const card = await res.json()
+      setCards(prev => [...prev, card])
+      setShowForm(false)
+      toast("Karte angelegt")
+    } catch {
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   async function updateCard(id: string, data: Omit<CreditAccount, "id">) {
-    const res = await fetch(`/api/accounts/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-    const card = await res.json()
-    setCards(prev => prev.map(c => c.id === id ? card : c))
-    setEditingId(null)
+    try {
+      const res = await fetch(`/api/accounts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error()
+      const card = await res.json()
+      setCards(prev => prev.map(c => c.id === id ? card : c))
+      setEditingId(null)
+      toast("Karte aktualisiert")
+    } catch {
+      toast("Konnte nicht speichern", "error")
+    }
   }
 
   async function deleteCard(id: string) {
     const ok = await confirm({ title: "Kreditkarte löschen?", confirmLabel: "Löschen", destructive: true })
     if (!ok) return
-    await fetch(`/api/accounts/${id}`, { method: "DELETE" })
+    const backup = cards
     setCards(prev => prev.filter(c => c.id !== id))
+    try {
+      const res = await fetch(`/api/accounts/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      toast("Karte gelöscht")
+    } catch {
+      setCards(backup)
+      toast("Konnte nicht gelöscht werden", "error")
+    }
   }
 
   return (

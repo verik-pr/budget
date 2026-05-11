@@ -49,6 +49,10 @@ input[type="date"] {
   padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
 }
 
+.top-safe {
+  top: calc(0.75rem + env(safe-area-inset-top));
+}
+
 .nav-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -77,3 +81,17 @@ input[type="date"] {
   animation: skeletonShimmer 1.4s ease-in-out infinite;
   border-radius: 0.75rem;
 }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-120%) scale(0.95) }
+  to { opacity: 1; transform: translateY(0) scale(1) }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1) }
+  to { opacity: 0; transform: translateY(-120%) scale(0.95) }
+}
+.toast-panel { animation: toastIn 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.toast-panel.leaving { animation: toastOut 240ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+@keyframes spinnerRotate { to { transform: rotate(360deg) } }
+.spinner { animation: spinnerRotate 0.9s linear infinite; }
