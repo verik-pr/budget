@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { formatCHF } from "@/lib/utils"
 import { AccountSelector } from "@/components/account-selector"
 import { TransactionList } from "@/components/transaction-list"
+import { ForecastCard } from "@/components/forecast-card"
 import Link from "next/link"
 
 async function applyRecurring() {
@@ -114,6 +115,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             )}
           </div>
         </div>
+      </div>
+
+      <div className="px-6 pt-6">
+        <ForecastCard accountId={selectedId ?? null} />
       </div>
 
       {/* Transactions */}

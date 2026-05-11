@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 
-const FLAGS = ["budgetWarning", "creditCardDue", "partnerBooking", "turnNudge", "goalReached", "scanReminder"] as const
+const FLAGS = ["budgetWarning", "creditCardDue", "partnerBooking", "turnNudge", "goalReached", "scanReminder", "weeklySummary"] as const
 
 export async function GET() {
   const session = await getServerSession(authOptions)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, X, Check, ScanLine, ArrowLeft } from "lucide-react"
+import { Camera, X, Check, ScanLine, ArrowLeft, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { CONTRIBUTORS } from "@/lib/utils"
 import { useToast } from "@/components/toast"
@@ -26,6 +26,8 @@ export default function NewTransactionPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ categoryId: string; confidence: number } | null>(null)
+  const [userPickedCategory, setUserPickedCategory] = useState(false)
 
   useEffect(() => {
     fetch("/api/categories").then(r => r.json()).then(data => {
@@ -46,6 +48,33 @@ export default function NewTransactionPage() {
   }
 
   const filtered = categories.filter(c => c.type === type)
+
+  useEffect(() => {
+    if (description.trim().length < 3) {
+      setSuggestion(null)
+      return
+    }
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/ai/categorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description, type }),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        if (data && data.confidence >= 0.6 && categories.find(c => c.id === data.categoryId)) {
+          setSuggestion(data)
+        } else {
+          setSuggestion(null)
+        }
+      } catch {}
+    }, 600)
+    return () => clearTimeout(handle)
+  }, [description, type, categories])
+
+  const suggestedCat = suggestion && categories.find(c => c.id === suggestion.categoryId)
+  const showSuggestion = suggestedCat && !userPickedCategory && suggestion.categoryId !== categoryId
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -147,10 +176,20 @@ export default function NewTransactionPage() {
 
           {/* Categories */}
           <div>
-            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Kategorie</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">Kategorie</p>
+              {showSuggestion && (
+                <button type="button"
+                  onClick={() => { setCategoryId(suggestion!.categoryId); setUserPickedCategory(true); setSuggestion(null) }}
+                  className="flex items-center gap-1.5 bg-green-500/15 text-green-400 rounded-full px-3 py-1 text-xs font-bold active:opacity-70">
+                  <Sparkles className="w-3 h-3" />
+                  <span>{suggestedCat!.icon} {suggestedCat!.name}</span>
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-4 gap-2">
               {filtered.map(cat => (
-                <button key={cat.id} type="button" onClick={() => setCategoryId(cat.id)}
+                <button key={cat.id} type="button" onClick={() => { setCategoryId(cat.id); setUserPickedCategory(true) }}
                   className={`rounded-2xl py-3 px-2 text-center transition-all ${
                     categoryId === cat.id ? "bg-white" : "bg-zinc-900"
                   }`}>

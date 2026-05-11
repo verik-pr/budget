@@ -58,6 +58,7 @@ export async function register() {
       `CREATE INDEX IF NOT EXISTS "Transaction_recurringId_date_idx" ON "Transaction" ("recurringId", "date")`,
       `CREATE INDEX IF NOT EXISTS "Account_type_idx" ON "Account" ("type")`,
       `CREATE INDEX IF NOT EXISTS "PushSubscription_userId_idx" ON "PushSubscription" ("userId")`,
+      `ALTER TABLE "NotificationPrefs" ADD COLUMN "weeklySummary" INTEGER NOT NULL DEFAULT 1`,
     ]
     for (const sql of migrations) {
       try {

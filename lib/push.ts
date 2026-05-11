@@ -24,6 +24,7 @@ export type NotificationType =
   | "turnNudge"
   | "goalReached"
   | "scanReminder"
+  | "weeklySummary"
 
 export async function sendPush(userId: string, type: NotificationType, payload: PushPayload) {
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) return

@@ -13,6 +13,7 @@ type Prefs = {
   turnNudge: boolean
   goalReached: boolean
   scanReminder: boolean
+  weeklySummary: boolean
 }
 
 const FLAG_LABELS: { key: keyof Prefs; label: string; desc: string }[] = [
@@ -22,6 +23,7 @@ const FLAG_LABELS: { key: keyof Prefs; label: string; desc: string }[] = [
   { key: "turnNudge", label: "Du bist dran", desc: "Wenn Auslagen-Differenz > CHF 100 ist" },
   { key: "goalReached", label: "Sparziel erreicht", desc: "Wenn ein Ziel zu 100% gefüllt ist" },
   { key: "scanReminder", label: "Scan-Erinnerung", desc: "Wenn du 3 Tage nichts gebucht hast" },
+  { key: "weeklySummary", label: "Wochen-Rückblick", desc: "KI-Zusammenfassung sonntagabends" },
 ]
 
 function urlBase64ToUint8Array(base64: string) {

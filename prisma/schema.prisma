@@ -43,6 +43,7 @@ model NotificationPrefs {
   turnNudge       Boolean  @default(true)
   goalReached     Boolean  @default(true)
   scanReminder    Boolean  @default(true)
+  weeklySummary   Boolean  @default(true)
 }
 
 model BudgetAlertSent {
