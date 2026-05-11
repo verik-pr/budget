@@ -197,12 +197,17 @@ export default function StatsPage() {
 
   const byPerson: PersonStat[] = (() => {
     const map: Record<string, PersonStat> = {}
-    const myName = session?.user?.name?.split(" ")[0] ?? "Ich"
     for (const t of expenses) {
-      const key = t.contributor ?? "__me__"
+      const key = t.contributor ?? t.user.name
       if (!map[key]) {
-        const contrib = CONTRIBUTORS.find(c => c.value === t.contributor)
-        map[key] = { label: contrib ? contrib.label.split(" ")[0] : myName, color: contrib?.color ?? myContrib?.color ?? "#6366f1", total: 0 }
+        if (t.contributor) {
+          const contrib = CONTRIBUTORS.find(c => c.value === t.contributor)
+          map[key] = { label: contrib ? contrib.label.split(" ")[0] : t.contributor, color: contrib?.color ?? "#6366f1", total: 0 }
+        } else {
+          const firstName = t.user.name.split(" ")[0]
+          const contrib = CONTRIBUTORS.find(c => c.label.toLowerCase() === firstName.toLowerCase())
+          map[key] = { label: firstName, color: contrib?.color ?? myContrib?.color ?? "#6366f1", total: 0 }
+        }
       }
       map[key].total += t.amount
     }
