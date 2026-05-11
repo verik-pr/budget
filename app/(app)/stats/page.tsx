@@ -121,8 +121,9 @@ export default function StatsPage() {
   useEffect(() => {
     fetch("/api/accounts?mine=true")
       .then(r => r.json())
-      .then(({ accounts: accs }: { accounts: Account[]; defaultId: string | null }) => {
+      .then(({ accounts: accs, defaultId }: { accounts: Account[]; defaultId: string | null }) => {
         setAccounts(accs.filter(a => a.type !== "credit"))
+        setAccountId(defaultId)
         const credits = accs.filter(a => a.type === "credit")
         // Fetch balances for credit cards
         Promise.all(credits.map(async acc => {
