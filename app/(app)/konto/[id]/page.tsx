@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react"
 import { formatCHF, formatDate } from "@/lib/utils"
 import { SkeletonList } from "@/components/skeleton"
 
@@ -14,12 +14,17 @@ type Transaction = {
 
 type Account = { id: string; name: string; icon: string; color: string }
 
+function initialPeriodStart() {
+  const today = new Date()
+  return today.getDate() >= 24
+    ? new Date(today.getFullYear(), today.getMonth(), 24)
+    : new Date(today.getFullYear(), today.getMonth() - 1, 24)
+}
+
 export default function KontoPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [periodStart, setPeriodStart] = useState<Date>(initialPeriodStart)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [account, setAccount] = useState<Account | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,23 +37,27 @@ export default function KontoPage() {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/transactions?year=${year}&month=${month}&accountId=${id}`)
+    const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
+    const params = new URLSearchParams({
+      startDate: periodStart.toISOString(),
+      endDate: end.toISOString(),
+      accountId: id,
+    })
+    fetch(`/api/transactions?${params}`)
       .then(r => r.json())
       .then(data => { setTransactions(data); setLoading(false) })
-  }, [year, month, id])
+  }, [periodStart, id])
 
-  function prevMonth() {
-    if (month === 1) { setMonth(12); setYear(y => y - 1) } else setMonth(m => m - 1)
-  }
-  function nextMonth() {
-    if (month === 12) { setMonth(1); setYear(y => y + 1) } else setMonth(m => m + 1)
-  }
+  function prevPeriod() { setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() - 1, 24)) }
+  function nextPeriod() { setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() + 1, 24)) }
+
+  const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
+  const lastDay = new Date(periodEnd.getTime() - 86400000)
+  const periodLabel = `${periodStart.getDate()}. ${periodStart.toLocaleDateString("de-CH", { month: "short" })} – ${lastDay.getDate()}. ${lastDay.toLocaleDateString("de-CH", { month: "short", year: "numeric" })}`
 
   const expenses = transactions.filter(t => t.category.type === "expense")
   const total = expenses.reduce((s, t) => s + t.amount, 0)
-  const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" })
 
-  // Group by user
   const byUser: Record<string, { name: string; color: string; total: number }> = {}
   for (const t of expenses) {
     if (!byUser[t.user.id]) byUser[t.user.id] = { name: t.user.name, color: t.user.color, total: 0 }
@@ -57,11 +66,10 @@ export default function KontoPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Header */}
       <div className="bg-black px-6 pt-safe pb-8">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
           {account && (
             <div className="flex items-center gap-2">
@@ -71,22 +79,19 @@ export default function KontoPage() {
           )}
         </div>
 
-        {/* Month nav */}
         <div className="flex items-center justify-between mb-6">
-          <button onClick={prevMonth} className="text-zinc-400 hover:text-white transition-colors">
+          <button onClick={prevPeriod} className="text-zinc-400 hover:text-white transition-colors">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <p className="text-zinc-400 text-sm font-semibold">{monthLabel}</p>
-          <button onClick={nextMonth} className="text-zinc-400 hover:text-white transition-colors">
+          <p className="text-zinc-400 text-sm font-semibold">{periodLabel}</p>
+          <button onClick={nextPeriod} className="text-zinc-400 hover:text-white transition-colors">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Total */}
         <p className="text-white text-4xl font-black tracking-tight tabular-nums">−{formatCHF(total)}</p>
         <p className="text-zinc-600 text-sm mt-1">Ausgaben</p>
 
-        {/* Split by user */}
         {Object.keys(byUser).length > 1 && (
           <div className="flex gap-4 mt-6">
             {Object.values(byUser).map(u => (
@@ -99,12 +104,11 @@ export default function KontoPage() {
         )}
       </div>
 
-      {/* Transactions */}
       <div className="px-6 py-4">
         {loading ? (
           <SkeletonList count={6} />
         ) : transactions.length === 0 ? (
-          <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen diesen Monat</p>
+          <p className="text-zinc-500 text-sm text-center py-12">Keine Buchungen in dieser Periode</p>
         ) : (
           <div className="bg-white rounded-3xl overflow-hidden">
             {transactions.map((t, i) => (

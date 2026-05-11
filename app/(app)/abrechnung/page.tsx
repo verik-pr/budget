@@ -149,7 +149,7 @@ export default function AbrechnungPage() {
         )}
 
         {owesMe.length === 0 && iOwe.length === 0 && (
-          <p className="text-zinc-600 text-sm text-center py-12">
+          <p className="text-zinc-500 text-sm text-center py-12">
             Noch keine geteilten Ausgaben erfasst.{"\n"}
             Scanne eine Quittung und wähle 50/50 oder Nur [Partner].
           </p>

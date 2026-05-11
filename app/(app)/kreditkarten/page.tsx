@@ -154,7 +154,7 @@ export default function KreditkartenPage() {
           {loading ? (
             <SkeletonList count={3} />
           ) : cards.length === 0 && !showForm ? (
-            <p className="text-zinc-600 text-sm text-center py-8">Noch keine Kreditkarten erfasst.</p>
+            <p className="text-zinc-500 text-sm text-center py-12">Noch keine Kreditkarten erfasst.</p>
           ) : (
             cards.map(card => (
               <div key={card.id}>

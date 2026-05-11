@@ -328,7 +328,7 @@ export default function StatsPage() {
               {loading ? (
                 <SkeletonList count={5} />
               ) : byCategory.length === 0 ? (
-                <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen</p>
+                <p className="text-zinc-500 text-sm text-center py-12">Keine Buchungen</p>
               ) : (
                 <div className="bg-white rounded-3xl overflow-hidden">
                   {byCategory.map((cat, i) => {
@@ -420,7 +420,7 @@ export default function StatsPage() {
               )}
 
               {provisions.length === 0 && !showForm ? (
-                <p className="text-zinc-600 text-sm text-center py-8">Noch keine Rückstellungen.<br />Tippe auf + Neu um eine hinzuzufügen.</p>
+                <p className="text-zinc-500 text-sm text-center py-12">Noch keine Rückstellungen.<br />Tippe auf + Neu um eine hinzuzufügen.</p>
               ) : (
                 <div className="bg-white rounded-3xl overflow-hidden">
                   {provisions.map((p, i) => (

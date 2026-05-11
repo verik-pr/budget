@@ -130,7 +130,7 @@ export default function TransactionsPage() {
         {loading ? (
           <SkeletonList count={6} />
         ) : visible.length === 0 ? (
-          <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen gefunden</p>
+          <p className="text-zinc-500 text-sm text-center py-12">Keine Buchungen gefunden</p>
         ) : (
           <TransactionList
             transactions={visible}

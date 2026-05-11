@@ -124,7 +124,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
 
         {transactions.length === 0 ? (
-          <p className="text-zinc-500 text-sm py-8 text-center">Noch keine Buchungen diesen Monat</p>
+          <p className="text-zinc-500 text-sm text-center py-12">Noch keine Buchungen diese Periode</p>
         ) : (
           <TransactionList transactions={transactions.slice(0, 12)} />
         )}

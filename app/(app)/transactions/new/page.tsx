@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, X, Check, ScanLine } from "lucide-react"
+import { Camera, X, Check, ScanLine, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { CONTRIBUTORS } from "@/lib/utils"
 
@@ -71,7 +71,12 @@ export default function NewTransactionPage() {
   return (
     <div className="max-w-lg mx-auto min-h-screen bg-black">
       <div className="px-6 pt-safe pb-6">
-        <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-6">Neue Buchung</p>
+        <div className="flex items-center gap-3 mb-6">
+          <button type="button" onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Neue Buchung</p>
+        </div>
 
         {/* Scan shortcut */}
         <Link href="/scan"

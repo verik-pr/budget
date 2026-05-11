@@ -33,15 +33,15 @@ export default async function MehrPage() {
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </Link>
           <Link href="/recurring" className="flex items-center gap-4 px-5 py-4 border-b border-gray-100">
-            <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
-              <RefreshCw className="w-4 h-4 text-gray-600" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#3b82f620" }}>
+              <RefreshCw className="w-4 h-4" style={{ color: "#3b82f6" }} />
             </div>
             <span className="text-sm font-semibold text-gray-900 flex-1">Regeln</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />
           </Link>
           <Link href="/goals" className="flex items-center gap-4 px-5 py-4 border-b border-gray-100">
-            <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
-              <Target className="w-4 h-4 text-gray-600" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#ec489920" }}>
+              <Target className="w-4 h-4" style={{ color: "#ec4899" }} />
             </div>
             <span className="text-sm font-semibold text-gray-900 flex-1">Sparziele</span>
             <ChevronRight className="w-4 h-4 text-gray-300" />

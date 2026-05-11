@@ -132,7 +132,7 @@ export default function GoalsPage() {
         {loading ? (
           <SkeletonList count={3} />
         ) : goals.length === 0 && !showForm ? (
-          <p className="text-zinc-600 text-sm text-center py-12">
+          <p className="text-zinc-500 text-sm text-center py-12">
             Noch keine Sparziele.<br />Tippe auf + Neu um eines hinzuzufügen.
           </p>
         ) : (

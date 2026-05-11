@@ -173,7 +173,7 @@ export default function RecurringPage() {
         {loading ? (
           <SkeletonList count={4} />
         ) : rules.length === 0 && !showForm ? (
-          <p className="text-zinc-600 text-sm text-center py-12">
+          <p className="text-zinc-500 text-sm text-center py-12">
             Noch keine Regeln.<br />Tippe auf + Neu um eine hinzuzufügen.
           </p>
         ) : (
