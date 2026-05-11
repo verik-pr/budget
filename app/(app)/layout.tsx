@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { SessionProvider } from "@/components/session-provider"
 import { BottomNav } from "@/components/nav"
+import { ConfirmProvider } from "@/components/confirm-sheet"
 
 export const viewport: Viewport = {
   themeColor: "#000000",
@@ -15,10 +16,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionProvider session={session}>
-      <div className="app-root">
-        {children}
-      </div>
-      <BottomNav />
+      <ConfirmProvider>
+        <div className="app-root">
+          {children}
+        </div>
+        <BottomNav />
+      </ConfirmProvider>
     </SessionProvider>
   )
 }

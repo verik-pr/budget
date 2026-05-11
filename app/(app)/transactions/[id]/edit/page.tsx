@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Check, X } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
+import { Skeleton } from "@/components/skeleton"
 
 type Category = { id: string; name: string; icon: string; type: string }
 type Account = { id: string; name: string; icon: string; color: string }
@@ -59,8 +60,14 @@ export default function EditTransactionPage() {
 
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto min-h-screen bg-black flex items-center justify-center">
-        <p className="text-zinc-500 text-sm">Laden…</p>
+      <div className="max-w-lg mx-auto min-h-screen bg-black">
+        <div className="px-6 pt-safe pb-6 space-y-5">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-14 w-full" />
+        </div>
       </div>
     )
   }

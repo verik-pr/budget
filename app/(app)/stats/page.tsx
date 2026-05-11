@@ -5,6 +5,8 @@ import { formatCHF } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, X, Check } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
 import { useSession } from "next-auth/react"
+import { useConfirm } from "@/components/confirm-sheet"
+import { SkeletonList } from "@/components/skeleton"
 
 type Transaction = {
   amount: number
@@ -98,6 +100,7 @@ function ProvisionForm({ initial, onSave, onCancel }: {
 
 export default function StatsPage() {
   const { data: session } = useSession()
+  const confirm = useConfirm()
   const [periodStart, setPeriodStart] = useState<Date>(initialPeriodStart)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState<string | null>(null)
@@ -167,7 +170,8 @@ export default function StatsPage() {
   }
 
   async function deleteProvision(id: string) {
-    if (!confirm("Rückstellung löschen?")) return
+    const ok = await confirm({ title: "Rückstellung löschen?", confirmLabel: "Löschen", destructive: true })
+    if (!ok) return
     await fetch(`/api/provisions/${id}`, { method: "DELETE" })
     setProvisions(prev => prev.filter(x => x.id !== id))
   }
@@ -297,7 +301,7 @@ export default function StatsPage() {
                 <p className="text-sm text-zinc-400 font-medium">Total</p>
               </div>
               {loading ? (
-                <p className="text-center text-zinc-400 py-8 text-sm">Laden…</p>
+                <SkeletonList count={5} />
               ) : byCategory.length === 0 ? (
                 <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen</p>
               ) : (

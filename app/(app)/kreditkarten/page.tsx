@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, Trash2, Pencil, Check } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
+import { useConfirm } from "@/components/confirm-sheet"
+import { SkeletonList } from "@/components/skeleton"
 
 type CreditAccount = {
   id: string
@@ -93,6 +95,7 @@ function CardForm({ initial, onSave, onCancel }: {
 
 export default function KreditkartenPage() {
   const router = useRouter()
+  const confirm = useConfirm()
   const [cards, setCards] = useState<CreditAccount[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -130,7 +133,8 @@ export default function KreditkartenPage() {
   }
 
   async function deleteCard(id: string) {
-    if (!confirm("Kreditkarte löschen?")) return
+    const ok = await confirm({ title: "Kreditkarte löschen?", confirmLabel: "Löschen", destructive: true })
+    if (!ok) return
     await fetch(`/api/accounts/${id}`, { method: "DELETE" })
     setCards(prev => prev.filter(c => c.id !== id))
   }
@@ -148,7 +152,7 @@ export default function KreditkartenPage() {
 
         <div className="space-y-3">
           {loading ? (
-            <p className="text-zinc-600 text-sm text-center py-8">Laden…</p>
+            <SkeletonList count={3} />
           ) : cards.length === 0 && !showForm ? (
             <p className="text-zinc-600 text-sm text-center py-8">Noch keine Kreditkarten erfasst.</p>
           ) : (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { formatCHF, formatDate } from "@/lib/utils"
+import { SkeletonList } from "@/components/skeleton"
 
 type Transaction = {
   id: string; date: string; amount: number; description: string | null
@@ -101,7 +102,7 @@ export default function KontoPage() {
       {/* Transactions */}
       <div className="px-6 py-4">
         {loading ? (
-          <p className="text-center text-zinc-400 py-8 text-sm">Laden…</p>
+          <SkeletonList count={6} />
         ) : transactions.length === 0 ? (
           <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen diesen Monat</p>
         ) : (

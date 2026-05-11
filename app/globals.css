@@ -45,6 +45,35 @@ input[type="date"] {
   padding-top: max(4rem, calc(1rem + env(safe-area-inset-top)));
 }
 
+.pb-safe {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+
 .nav-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes sheetFadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%) }
+  to { transform: translateY(0) }
+}
+.sheet-backdrop { animation: sheetFadeIn 200ms ease-out both; }
+.sheet-panel    { animation: sheetSlideUp 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+@keyframes skeletonShimmer {
+  0% { background-position: -200% 0 }
+  100% { background-position: 200% 0 }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.04) 0%, rgb(255 255 255 / 0.10) 50%, rgb(255 255 255 / 0.04) 100%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  border-radius: 0.75rem;
+}
+.skeleton-light {
+  background: linear-gradient(90deg, rgb(0 0 0 / 0.04) 0%, rgb(0 0 0 / 0.08) 50%, rgb(0 0 0 / 0.04) 100%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  border-radius: 0.75rem;
 }

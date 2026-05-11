@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { formatCHF } from "@/lib/utils"
 import { Plus, Trash2, RefreshCw } from "lucide-react"
+import { useConfirm } from "@/components/confirm-sheet"
 
 type Category = { id: string; name: string; icon: string; type: string }
 type Rule = {
@@ -16,6 +17,7 @@ type Rule = {
 }
 
 export default function RecurringPage() {
+  const confirm = useConfirm()
   const [rules, setRules] = useState<Rule[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -48,7 +50,8 @@ export default function RecurringPage() {
   }
 
   async function deleteRule(id: string) {
-    if (!confirm("Regel löschen?")) return
+    const ok = await confirm({ title: "Regel löschen?", confirmLabel: "Löschen", destructive: true })
+    if (!ok) return
     await fetch(`/api/recurring/${id}`, { method: "DELETE" })
     setRules(r => r.filter(r => r.id !== id))
   }

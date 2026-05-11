@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { formatCHF } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { TransactionList, type TxItem } from "@/components/transaction-list"
+import { useConfirm } from "@/components/confirm-sheet"
+import { SkeletonList } from "@/components/skeleton"
 
 type Account = { id: string; name: string; icon: string; color: string }
 
@@ -15,6 +17,7 @@ function initialPeriodStart() {
 }
 
 export default function TransactionsPage() {
+  const confirm = useConfirm()
   const [periodStart, setPeriodStart] = useState<Date>(initialPeriodStart)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState<string | null>(null)
@@ -51,7 +54,8 @@ export default function TransactionsPage() {
   function nextPeriod() { setPeriodStart(p => new Date(p.getFullYear(), p.getMonth() + 1, 24)) }
 
   async function deleteTransaction(id: string) {
-    if (!confirm("Buchung löschen?")) return
+    const ok = await confirm({ title: "Buchung löschen?", confirmLabel: "Löschen", destructive: true })
+    if (!ok) return
     await fetch(`/api/transactions/${id}`, { method: "DELETE" })
     setTransactions(ts => ts.filter(t => t.id !== id))
   }
@@ -124,7 +128,7 @@ export default function TransactionsPage() {
 
       <div className="px-6 py-4">
         {loading ? (
-          <p className="text-center text-zinc-400 py-8 text-sm">Laden…</p>
+          <SkeletonList count={6} />
         ) : visible.length === 0 ? (
           <p className="text-center text-zinc-400 py-8 text-sm">Keine Buchungen gefunden</p>
         ) : (

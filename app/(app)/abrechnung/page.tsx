@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { formatCHF, formatDate } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
+import { Skeleton, SkeletonList } from "@/components/skeleton"
 
 type DebtTx = {
   id: string
@@ -39,8 +40,21 @@ export default function AbrechnungPage() {
 
   if (loading || !data) {
     return (
-      <div className="max-w-lg mx-auto min-h-screen bg-black flex items-center justify-center">
-        <p className="text-zinc-500 text-sm">Laden…</p>
+      <div className="max-w-lg mx-auto min-h-screen bg-black">
+        <div className="px-6 pt-safe pb-24">
+          <div className="flex items-center gap-3 mb-8">
+            <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Abrechnung</p>
+          </div>
+          <div className="rounded-3xl p-6 mb-8 bg-zinc-900 space-y-3">
+            <Skeleton className="h-3 w-1/3" />
+            <Skeleton className="h-10 w-2/3" />
+          </div>
+          <Skeleton className="h-3 w-1/3 mb-3" />
+          <SkeletonList count={4} />
+        </div>
       </div>
     )
   }
