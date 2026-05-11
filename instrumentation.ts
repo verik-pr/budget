@@ -51,6 +51,13 @@ export async function register() {
         FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE
       )`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "BudgetAlertSent_unique" ON "BudgetAlertSent" ("userId", "categoryId", "threshold", "periodStart")`,
+      `CREATE INDEX IF NOT EXISTS "Transaction_date_idx" ON "Transaction" ("date")`,
+      `CREATE INDEX IF NOT EXISTS "Transaction_accountId_date_idx" ON "Transaction" ("accountId", "date")`,
+      `CREATE INDEX IF NOT EXISTS "Transaction_categoryId_date_idx" ON "Transaction" ("categoryId", "date")`,
+      `CREATE INDEX IF NOT EXISTS "Transaction_userId_createdAt_idx" ON "Transaction" ("userId", "createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "Transaction_recurringId_date_idx" ON "Transaction" ("recurringId", "date")`,
+      `CREATE INDEX IF NOT EXISTS "Account_type_idx" ON "Account" ("type")`,
+      `CREATE INDEX IF NOT EXISTS "PushSubscription_userId_idx" ON "PushSubscription" ("userId")`,
     ]
     for (const sql of migrations) {
       try {

@@ -29,6 +29,8 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model NotificationPrefs {
@@ -72,11 +74,13 @@ model Account {
   name         String
   icon         String        @default("🏦")
   color        String        @default("#6366f1")
-  type         String        @default("personal") // "personal" | "shared" | "credit"
-  dueDay       Int?          // day of month when credit card bill is due
-  ownerName    String?       // for credit cards: which person owns it
+  type         String        @default("personal")
+  dueDay       Int?
+  ownerName    String?
   transactions Transaction[]
   createdAt    DateTime      @default(now())
+
+  @@index([type])
 }
 
 model Provision {
@@ -99,7 +103,7 @@ model Transaction {
   category    Category             @relation(fields: [categoryId], references: [id])
   userId      String
   user        User                 @relation(fields: [userId], references: [id])
-  contributor String?              // null = userId, "eltern_erik" | "eltern_celine" = Eltern
+  contributor String?
   accountId   String?
   account     Account?             @relation(fields: [accountId], references: [id])
   recurringId String?
@@ -107,9 +111,15 @@ model Transaction {
   sharedWith      String?
   sharedRatio     Float?
   note            String?
-  receiptId       String?          // groups items from the same scan
-  receiptMerchant String?          // merchant name for the receipt group
+  receiptId       String?
+  receiptMerchant String?
   createdAt   DateTime             @default(now())
+
+  @@index([date])
+  @@index([accountId, date])
+  @@index([categoryId, date])
+  @@index([userId, createdAt])
+  @@index([recurringId, date])
 }
 
 model SavingsGoal {
