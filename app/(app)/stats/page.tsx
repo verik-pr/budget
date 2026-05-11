@@ -12,10 +12,10 @@ type Transaction = {
   amount: number
   contributor: string | null
   user: { name: string }
-  category: { id: string; name: string; icon: string; type: string }
+  category: { id: string; name: string; icon: string; type: string; budget: number | null }
 }
 type Account = { id: string; name: string; icon: string; color: string; type: string; dueDay: number | null; ownerName: string | null }
-type CategoryStat = { id: string; name: string; icon: string; total: number }
+type CategoryStat = { id: string; name: string; icon: string; total: number; budget: number | null }
 type PersonStat = { label: string; color: string; total: number }
 type Provision = { id: string; name: string; icon: string; totalAmount: number; frequencyMonths: number; nextDueDate: string }
 
@@ -193,7 +193,7 @@ export default function StatsPage() {
   const byCategory: CategoryStat[] = Object.values(
     filtered.reduce((acc, t) => {
       const key = t.category.id
-      if (!acc[key]) acc[key] = { ...t.category, total: 0 }
+      if (!acc[key]) acc[key] = { id: t.category.id, name: t.category.name, icon: t.category.icon, total: 0, budget: t.category.budget }
       acc[key].total += t.amount
       return acc
     }, {} as Record<string, CategoryStat>)
@@ -308,6 +308,10 @@ export default function StatsPage() {
                 <div className="bg-white rounded-3xl overflow-hidden">
                   {byCategory.map((cat, i) => {
                     const pct = total > 0 ? (cat.total / total) * 100 : 0
+                    const hasBudget = tab === "expense" && cat.budget != null && cat.budget > 0
+                    const budgetPct = hasBudget ? (cat.total / (cat.budget as number)) * 100 : 0
+                    const over = budgetPct > 100
+                    const near = budgetPct > 80 && budgetPct <= 100
                     return (
                       <div key={cat.id} className={`px-5 py-4 ${i < byCategory.length - 1 ? "border-b border-gray-100" : ""}`}>
                         <div className="flex items-center gap-3 mb-2.5">
@@ -321,6 +325,20 @@ export default function StatsPage() {
                         <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${tab === "expense" ? "bg-gray-900" : "bg-green-500"}`} style={{ width: `${pct}%` }} />
                         </div>
+                        {hasBudget && (
+                          <div className="mt-2">
+                            <div className="flex justify-between text-xs mb-1">
+                              <p className="text-gray-400 tabular-nums">Budget {formatCHF(cat.budget as number)}</p>
+                              <p className={`tabular-nums font-semibold ${over ? "text-red-500" : near ? "text-orange-500" : "text-gray-400"}`}>
+                                {budgetPct.toFixed(0)}%
+                              </p>
+                            </div>
+                            <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${over ? "bg-red-500" : near ? "bg-orange-400" : "bg-green-500"}`}
+                                style={{ width: `${Math.min(budgetPct, 100)}%` }} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )
                   })}

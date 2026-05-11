@@ -10,6 +10,7 @@ export async function register() {
       `ALTER TABLE "Transaction" ADD COLUMN "receiptMerchant" TEXT`,
       `ALTER TABLE "Account" ADD COLUMN "dueDay" INTEGER`,
       `ALTER TABLE "Account" ADD COLUMN "ownerName" TEXT`,
+      `ALTER TABLE "Category" ADD COLUMN "budget" REAL`,
       `CREATE TABLE IF NOT EXISTS "Provision" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "name" TEXT NOT NULL,

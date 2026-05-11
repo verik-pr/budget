@@ -23,6 +23,7 @@ model Category {
   name                 String
   icon                 String
   type                 String
+  budget               Float?
   transactions         Transaction[]
   recurringTransactions RecurringTransaction[]
 }
