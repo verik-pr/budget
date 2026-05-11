@@ -16,6 +16,44 @@ model User {
   createdAt            DateTime               @default(now())
   transactions         Transaction[]
   recurringTransactions RecurringTransaction[]
+  pushSubscriptions    PushSubscription[]
+  notificationPrefs    NotificationPrefs?
+  budgetAlertsSent     BudgetAlertSent[]
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
+model NotificationPrefs {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgetWarning   Boolean  @default(true)
+  creditCardDue   Boolean  @default(true)
+  partnerBooking  Boolean  @default(true)
+  turnNudge       Boolean  @default(true)
+  goalReached     Boolean  @default(true)
+  scanReminder    Boolean  @default(true)
+}
+
+model BudgetAlertSent {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  threshold   Int
+  periodStart DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, categoryId, threshold, periodStart])
 }
 
 model Category {
@@ -26,6 +64,7 @@ model Category {
   budget               Float?
   transactions         Transaction[]
   recurringTransactions RecurringTransaction[]
+  budgetAlertsSent     BudgetAlertSent[]
 }
 
 model Account {

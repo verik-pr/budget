@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { checkBudgetThresholds, notifyPartnerOfBooking } from "@/lib/push-triggers"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -64,6 +65,17 @@ export async function POST(req: Request) {
     },
     include: { category: true, user: { select: { id: true, name: true, color: true } } },
   })
+
+  ;(async () => {
+    try {
+      await checkBudgetThresholds(currentUser.id, transaction.categoryId, transaction.date)
+      if (transaction.sharedWith) {
+        await notifyPartnerOfBooking(currentUser.id, transaction.sharedWith, transaction.amount, transaction.description, transaction.category.name)
+      }
+    } catch (err) {
+      console.error("push trigger error", err)
+    }
+  })()
 
   return NextResponse.json(transaction)
 }

@@ -20,6 +20,37 @@ export async function register() {
         "nextDueDate" TEXT NOT NULL,
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
+      `CREATE TABLE IF NOT EXISTS "PushSubscription" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "userId" TEXT NOT NULL,
+        "endpoint" TEXT NOT NULL UNIQUE,
+        "p256dh" TEXT NOT NULL,
+        "auth" TEXT NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS "NotificationPrefs" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "userId" TEXT NOT NULL UNIQUE,
+        "budgetWarning" INTEGER NOT NULL DEFAULT 1,
+        "creditCardDue" INTEGER NOT NULL DEFAULT 1,
+        "partnerBooking" INTEGER NOT NULL DEFAULT 1,
+        "turnNudge" INTEGER NOT NULL DEFAULT 1,
+        "goalReached" INTEGER NOT NULL DEFAULT 1,
+        "scanReminder" INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS "BudgetAlertSent" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "userId" TEXT NOT NULL,
+        "categoryId" TEXT NOT NULL,
+        "threshold" INTEGER NOT NULL,
+        "periodStart" DATETIME NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE,
+        FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "BudgetAlertSent_unique" ON "BudgetAlertSent" ("userId", "categoryId", "threshold", "periodStart")`,
     ]
     for (const sql of migrations) {
       try {
