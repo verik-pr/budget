@@ -1,22 +1,25 @@
 FROM node:20-alpine
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl tini \
+  && addgroup -g 1001 -S nextjs \
+  && adduser -S nextjs -u 1001 -G nextjs
 
-COPY package.json ./
+COPY --chown=nextjs:nextjs package.json ./
 RUN npm install --ignore-scripts
 
-COPY . .
+COPY --chown=nextjs:nextjs . .
 RUN npx prisma generate
 RUN npm run build
 
-RUN mkdir -p /data
+RUN mkdir -p /data && chown -R nextjs:nextjs /app /data
+
+USER nextjs
+
 EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 
-COPY entrypoint.sh ./
-RUN chmod +x entrypoint.sh
-
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["./entrypoint.sh"]
