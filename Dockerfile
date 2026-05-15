@@ -9,6 +9,7 @@ COPY --chown=nextjs:nextjs package.json ./
 RUN npm install --ignore-scripts
 
 COPY --chown=nextjs:nextjs . .
+RUN chmod +x entrypoint.sh
 RUN npx prisma generate
 RUN npm run build
 
