@@ -5,8 +5,8 @@ RUN apk add --no-cache libc6-compat openssl tini \
   && addgroup -g 1001 -S nextjs \
   && adduser -S nextjs -u 1001 -G nextjs
 
-COPY --chown=nextjs:nextjs package.json ./
-RUN npm install --ignore-scripts
+COPY --chown=nextjs:nextjs package.json package-lock.json ./
+RUN npm ci --ignore-scripts
 
 COPY --chown=nextjs:nextjs . .
 RUN chmod +x entrypoint.sh
