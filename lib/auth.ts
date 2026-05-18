@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
+import { clearFailedLogins, isLoginRateLimited, recordFailedLogin, slowFailedLogin } from "./login-rate-limit"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,10 +14,25 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } })
-        if (!user) return null
+        const email = credentials.email.trim().toLowerCase()
+        if (isLoginRateLimited(email)) {
+          await slowFailedLogin()
+          return null
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } })
+        if (!user) {
+          recordFailedLogin(email)
+          await slowFailedLogin()
+          return null
+        }
         const valid = await bcrypt.compare(credentials.password, user.password)
-        if (!valid) return null
+        if (!valid) {
+          recordFailedLogin(email)
+          await slowFailedLogin()
+          return null
+        }
+        clearFailedLogins(email)
         return { id: user.id, name: user.name, email: user.email, color: user.color }
       },
     }),

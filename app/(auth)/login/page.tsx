@@ -1,7 +1,7 @@
 "use client"
 
 import { signIn } from "next-auth/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff } from "lucide-react"
 
@@ -12,6 +12,13 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = window.setTimeout(() => setCooldown(cooldown - 1), 1000)
+    return () => window.clearTimeout(timer)
+  }, [cooldown])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -21,7 +28,8 @@ export default function LoginPage() {
     if (res?.ok) {
       router.push("/dashboard")
     } else {
-      setError("E-Mail oder Passwort falsch.")
+      setCooldown(5)
+      setError("E-Mail oder Passwort falsch. Nach mehreren Fehlversuchen wird der Login kurz gesperrt.")
       setLoading(false)
     }
   }
@@ -63,9 +71,9 @@ export default function LoginPage() {
 
             {error && <p className="text-red-400 text-sm font-medium">{error}</p>}
 
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || cooldown > 0}
               className="w-full bg-green-500 hover:bg-green-400 text-black rounded-2xl py-4 font-black text-sm disabled:opacity-50 active:scale-[0.98] transition-all mt-2">
-              {loading ? "…" : "Anmelden"}
+              {loading ? "…" : cooldown > 0 ? `Warten (${cooldown}s)` : "Anmelden"}
             </button>
           </form>
         </div>
