@@ -121,6 +121,7 @@ model Transaction {
   @@index([categoryId, date])
   @@index([userId, createdAt])
   @@index([recurringId, date])
+  @@unique([recurringId, date])
 }
 
 model SavingsGoal {

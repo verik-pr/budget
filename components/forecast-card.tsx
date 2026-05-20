@@ -11,14 +11,22 @@ export function ForecastCard({ accountId }: { accountId: string | null }) {
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    setError(false)
     const params = accountId ? `?accountId=${accountId}` : ""
-    fetch(`/api/ai/forecast${params}`)
+    fetch(`/api/ai/forecast${params}`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         setData(d)
         setLoading(false)
       })
-      .catch(() => { setError(true); setLoading(false) })
+      .catch(err => {
+        if (err instanceof DOMException && err.name === "AbortError") return
+        setError(true)
+        setLoading(false)
+      })
+    return () => controller.abort()
   }, [accountId])
 
   if (loading) {

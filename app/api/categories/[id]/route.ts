@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { asNonNegativeNumber } from "@/lib/api-validation"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -13,7 +14,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if ("budget" in body) {
     const b = body.budget
-    data.budget = b === null || b === "" || b === undefined ? null : parseFloat(b)
+    if (b === null || b === "" || b === undefined) {
+      data.budget = null
+    } else {
+      const budget = asNonNegativeNumber(b)
+      if (budget === null) return NextResponse.json({ error: "Ungültiges Budget" }, { status: 400 })
+      data.budget = budget
+    }
   }
 
   const category = await prisma.category.update({ where: { id }, data })

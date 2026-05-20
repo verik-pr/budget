@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { asIntegerInRange, asNonEmptyString, asNullableString } from "@/lib/api-validation"
+
+const ACCOUNT_TYPES = new Set(["personal", "shared", "credit"])
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -26,9 +29,20 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { name, icon, color, type, dueDay, ownerName } = await req.json()
-  if (!name || !type) return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
+  const parsedName = asNonEmptyString(name)
+  const parsedDueDay = dueDay === null || dueDay === undefined || dueDay === "" ? null : asIntegerInRange(dueDay, 1, 31)
+  if (!parsedName || !ACCOUNT_TYPES.has(type) || parsedDueDay === null && dueDay !== null && dueDay !== undefined && dueDay !== "") {
+    return NextResponse.json({ error: "Ungültige Felder" }, { status: 400 })
+  }
   const account = await prisma.account.create({
-    data: { name, icon: icon || "💳", color: color || "#6366f1", type, dueDay: dueDay || null, ownerName: ownerName || null },
+    data: {
+      name: parsedName,
+      icon: asNullableString(icon) || "💳",
+      color: asNullableString(color) || "#6366f1",
+      type,
+      dueDay: parsedDueDay,
+      ownerName: asNullableString(ownerName),
+    },
   })
   return NextResponse.json(account)
 }

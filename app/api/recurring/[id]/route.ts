@@ -18,6 +18,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params
   const { active } = await req.json()
+  if (typeof active !== "boolean") {
+    return NextResponse.json({ error: "Ungültiger Status" }, { status: 400 })
+  }
   const rule = await prisma.recurringTransaction.update({
     where: { id },
     data: { active },

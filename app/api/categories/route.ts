@@ -17,11 +17,16 @@ export async function GET(req: Request) {
   if (!withSpent || !startDate || !endDate) {
     return NextResponse.json(categories)
   }
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
+    return NextResponse.json({ error: "Ungültiger Datumsbereich" }, { status: 400 })
+  }
 
   const sums = await prisma.transaction.groupBy({
     by: ["categoryId"],
     _sum: { amount: true },
-    where: { date: { gte: new Date(startDate), lt: new Date(endDate) } },
+    where: { date: { gte: start, lt: end } },
   })
   const spentByCat = new Map(sums.map(s => [s.categoryId, s._sum.amount ?? 0]))
 

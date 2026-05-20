@@ -45,7 +45,7 @@ export async function checkBudgetThresholds(userId: string, categoryId: string, 
 }
 
 export async function notifyPartnerOfBooking(payerUserId: string, sharedWith: string, amount: number, description: string | null, categoryName: string) {
-  const targetContrib = CONTRIBUTORS.find(c => c.label.split(" ")[0].toLowerCase() === sharedWith.toLowerCase())
+  const targetContrib = CONTRIBUTORS.find(c => c.value === sharedWith)
   if (!targetContrib) return
 
   const partner = await prisma.user.findFirst({

@@ -59,28 +59,35 @@ export default function ScanPage() {
     setError("")
     setNote("")
 
-    const [scanRes, catRes, accRes] = await Promise.all([
-      (async () => { const fd = new FormData(); fd.append("file", file); return fetch("/api/scan-receipt", { method: "POST", body: fd }) })(),
-      fetch("/api/categories"),
-      fetch("/api/accounts?mine=true"),
-    ])
+    try {
+      const [scanRes, catRes, accRes] = await Promise.all([
+        (async () => { const fd = new FormData(); fd.append("file", file); return fetch("/api/scan-receipt", { method: "POST", body: fd }) })(),
+        fetch("/api/categories"),
+        fetch("/api/accounts?mine=true"),
+      ])
 
-    const [cats, { accounts: accs, defaultId }] = await Promise.all([catRes.json(), accRes.json()])
-    setCategories(cats)
-    setAccounts(accs)
-    if (defaultId) setAccountId(defaultId)
+      if (!catRes.ok || !accRes.ok) throw new Error("Stammdaten konnten nicht geladen werden")
 
-    if (!scanRes.ok) {
-      const err = await scanRes.json()
-      setError(err.error || "Fehler beim Scannen")
+      const [cats, { accounts: accs, defaultId }] = await Promise.all([catRes.json(), accRes.json()])
+      setCategories(cats)
+      setAccounts(accs)
+      if (defaultId) setAccountId(defaultId)
+
+      if (!scanRes.ok) {
+        const err = await scanRes.json().catch(() => ({}))
+        setError(err.error || "Fehler beim Scannen")
+        setPhase("capture")
+        return
+      }
+
+      const data: ScanResult = await scanRes.json()
+      setResult(data)
+      setItems(data.items.map(item => ({ ...item, excluded: false, contributor: "", sharedWith: null, sharedRatio: null })))
+      setPhase("review")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Scannen")
       setPhase("capture")
-      return
     }
-
-    const data: ScanResult = await scanRes.json()
-    setResult(data)
-    setItems(data.items.map(item => ({ ...item, excluded: false, contributor: "", sharedWith: null, sharedRatio: null })))
-    setPhase("review")
   }
 
   function triggerCapture() { fileRef.current?.setAttribute("capture", "environment"); fileRef.current?.click() }
@@ -111,28 +118,27 @@ export default function ScanPage() {
     const receiptId = crypto.randomUUID()
 
     try {
-      const responses = await Promise.all(toSave.map(item =>
-        fetch("/api/transactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      const response = await fetch("/api/scan-receipt/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: result?.date ?? new Date().toISOString().split("T")[0],
+          accountId: accountId || null,
+          note: note || null,
+          receiptId,
+          receiptMerchant: result?.merchant ?? null,
+          items: toSave.map(item => ({
             amount: item.amount,
             categoryId: item.categoryId,
             description: item.name,
-            date: result?.date ?? new Date().toISOString().split("T")[0],
             contributor: item.contributor || null,
-            accountId: accountId || null,
-            note: note || null,
-            receiptId,
-            receiptMerchant: result?.merchant ?? null,
             ...(item.sharedWith ? { sharedWith: item.sharedWith, sharedRatio: item.sharedRatio } : {}),
-          }),
-        })
-      ))
-      const failed = responses.find(r => !r.ok)
-      if (failed) {
-        const err = await failed.json().catch(() => ({}))
-        throw new Error(err.error || `HTTP ${failed.status}`)
+          })),
+        }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || `HTTP ${response.status}`)
       }
       router.push("/dashboard")
     } catch (e) {

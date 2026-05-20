@@ -5,37 +5,12 @@ import { formatCHF } from "@/lib/utils"
 import { AccountSelector } from "@/components/account-selector"
 import { TransactionList } from "@/components/transaction-list"
 import { ForecastCard } from "@/components/forecast-card"
+import { applyDueRecurringTransactions } from "@/lib/recurring"
 import Link from "next/link"
 
-async function applyRecurring() {
-  const now = new Date()
-  const today = now.getDate()
-  const start = new Date(now.getFullYear(), now.getMonth(), 1)
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  const rules = await prisma.recurringTransaction.findMany({ where: { active: true } })
-  for (const rule of rules) {
-    if (rule.dayOfMonth > today) continue
-    const already = await prisma.transaction.findFirst({
-      where: { recurringId: rule.id, date: { gte: start, lt: end } },
-    })
-    if (already) continue
-    await prisma.transaction.create({
-      data: {
-        date: new Date(now.getFullYear(), now.getMonth(), rule.dayOfMonth),
-        amount: rule.amount,
-        description: rule.name,
-        categoryId: rule.categoryId,
-        userId: rule.userId,
-        recurringId: rule.id,
-      },
-    })
-  }
-}
-
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ konto?: string }> }) {
-  await applyRecurring()
-
   const session = await getServerSession(authOptions)
+  if (session) await applyDueRecurringTransactions()
   const { konto } = await searchParams
 
   const now = new Date()

@@ -22,6 +22,11 @@ function extractJson<T>(text: string): T | null {
   try { return JSON.parse(match[0]) as T } catch { return null }
 }
 
+function firstTextBlock(content: Anthropic.Messages.Message["content"]): string {
+  const block = content.find(c => c.type === "text")
+  return block?.type === "text" ? block.text : ""
+}
+
 export async function suggestCategory(description: string, type: "expense" | "income"): Promise<{ categoryId: string; confidence: number } | null> {
   if (!description || description.trim().length < 3) return null
 
@@ -49,7 +54,7 @@ export async function suggestCategory(description: string, type: "expense" | "in
     }],
   })
 
-  const text = result.content.find(c => c.type === "text")?.type === "text" ? (result.content[0] as { text: string }).text : ""
+  const text = firstTextBlock(result.content)
   const parsed = extractJson<{ categoryId: string; confidence: number }>(text)
   if (!parsed) return null
   if (!categories.find(c => c.id === parsed.categoryId)) return null
@@ -125,7 +130,12 @@ export async function generateForecast(accountId: string | null): Promise<{ proj
   const daysLeft = daysTotal - daysElapsed
   if (daysLeft <= 0) return null
 
-  const accountFilter = accountId ? { OR: [{ accountId }, { accountId: null }] } : {}
+  const account = accountId ? await prisma.account.findUnique({ where: { id: accountId }, select: { type: true } }) : null
+  const accountFilter = accountId
+    ? account?.type === "personal"
+      ? { OR: [{ accountId }, { accountId: null }] }
+      : { accountId }
+    : {}
   const txs = await prisma.transaction.findMany({
     where: { date: { gte: periodStart, lt: periodEnd }, ...accountFilter },
     include: { category: true },
@@ -170,7 +180,7 @@ JSON:`,
     }],
   })
 
-  const text = result.content.find(c => c.type === "text")?.type === "text" ? (result.content[0] as { text: string }).text : ""
+  const text = firstTextBlock(result.content)
   const parsed = extractJson<{ projected: number; message: string }>(text)
   if (!parsed || typeof parsed.projected !== "number") return null
   return parsed

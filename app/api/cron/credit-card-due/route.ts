@@ -25,9 +25,9 @@ export async function GET(req: Request) {
     const end = new Date(today.getFullYear(), today.getMonth() + 1, 1)
     const txs = await prisma.transaction.findMany({
       where: { accountId: card.id, date: { gte: start, lt: end } },
-      select: { amount: true },
+      select: { amount: true, category: { select: { type: true } } },
     })
-    const balance = txs.reduce((s, t) => s + t.amount, 0)
+    const balance = txs.reduce((s, t) => s + (t.category.type === "income" ? -t.amount : t.amount), 0)
     if (balance <= 0) continue
 
     const recipients = card.ownerName
