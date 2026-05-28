@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:26-alpine
 WORKDIR /app
 
 RUN apk add --no-cache libc6-compat openssl tini \
