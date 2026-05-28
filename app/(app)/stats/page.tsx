@@ -4,9 +4,8 @@ import { useCallback, useEffect, useState } from "react"
 import { formatCHF } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, X, Check } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
-import { useSession } from "next-auth/react"
 import { useConfirm } from "@/components/confirm-sheet"
-import { SkeletonList } from "@/components/skeleton"
+import { Skeleton, SkeletonList } from "@/components/skeleton"
 import { useToast } from "@/components/toast"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 
@@ -22,6 +21,23 @@ type Account = { id: string; name: string; icon: string; color: string; type: st
 type CategoryStat = { id: string; name: string; icon: string; total: number; budget: number | null }
 type PersonStat = { label: string; color: string; total: number }
 type Provision = { id: string; name: string; icon: string; totalAmount: number; frequencyMonths: number; nextDueDate: string }
+type DebtTx = {
+  id: string
+  amount: number
+  contributor: string | null
+  sharedWith: string | null
+  sharedRatio: number | null
+  category: { id: string; name: string; icon: string }
+}
+type DebtData = {
+  net: number
+  partnerOwesMe: number
+  iOwePartner: number
+  partnerLabel: string
+  partnerColor: string
+  myLabel: string
+  transactions: DebtTx[]
+}
 
 function initialPeriodStart() {
   const today = new Date()
@@ -103,15 +119,18 @@ function ProvisionForm({ initial, onSave, onCancel }: {
 }
 
 export default function StatsPage() {
-  const { data: session } = useSession()
   const confirm = useConfirm()
   const toast = useToast()
   const [periodStart, setPeriodStart] = useState<Date>(initialPeriodStart)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [tab, setTab] = useState<"expense" | "income" | "planung">("expense")
+  const [tab, setTab] = useState<"expense" | "income" | "planung" | "gemeinsam">("expense")
   const [loading, setLoading] = useState(true)
+
+  // Gemeinsame Auslagen (kumulierte Abrechnung)
+  const [debtData, setDebtData] = useState<DebtData | null>(null)
+  const [debtLoading, setDebtLoading] = useState(false)
 
   // Credit cards
   const [creditAccounts, setCreditAccounts] = useState<(Account & { balance: number })[]>([])
@@ -173,14 +192,29 @@ export default function StatsPage() {
     }
   }, [toast])
 
+  const fetchDebts = useCallback(async () => {
+    setDebtLoading(true)
+    try {
+      const res = await fetch("/api/debts")
+      if (!res.ok) throw new Error()
+      setDebtData(await res.json())
+    } catch {
+      toast("Konnte Abrechnung nicht laden", "error")
+    } finally {
+      setDebtLoading(false)
+    }
+  }, [toast])
+
   useEffect(() => {
     if (tab === "planung") fetchProvisions()
-  }, [tab, fetchProvisions])
+    if (tab === "gemeinsam") fetchDebts()
+  }, [tab, fetchProvisions, fetchDebts])
 
   async function refresh() {
     await Promise.all([
-      fetchTransactions(false),
+      tab === "gemeinsam" ? Promise.resolve() : fetchTransactions(false),
       tab === "planung" ? fetchProvisions() : Promise.resolve(),
+      tab === "gemeinsam" ? fetchDebts() : Promise.resolve(),
     ])
   }
 
@@ -232,10 +266,6 @@ export default function StatsPage() {
   const lastDay = new Date(periodEnd.getTime() - 86400000)
   const periodLabel = `${periodStart.getDate()}. ${periodStart.toLocaleDateString("de-CH", { month: "short" })} – ${lastDay.getDate()}. ${lastDay.toLocaleDateString("de-CH", { month: "short", year: "numeric" })}`
 
-  const firstName = session?.user?.name?.split(" ")[0]?.toLowerCase() ?? ""
-  const myContrib = CONTRIBUTORS.find(c => c.label.toLowerCase().startsWith(firstName))
-
-  const expenses = transactions.filter(t => t.category.type === "expense")
   const filtered = transactions.filter(t => t.category.type === tab)
   const total = filtered.reduce((s, t) => s + t.amount, 0)
 
@@ -248,28 +278,30 @@ export default function StatsPage() {
     }, {} as Record<string, CategoryStat>)
   ).sort((a, b) => b.total - a.total)
 
-  const sharedExpenses = expenses.filter(t => t.sharedWith)
-  const bySharedPerson: PersonStat[] = (() => {
-    const map: Record<string, PersonStat> = {}
-    for (const t of sharedExpenses) {
-      const key = t.contributor ?? t.user.name
-      if (!map[key]) {
-        if (t.contributor) {
-          const contrib = CONTRIBUTORS.find(c => c.value === t.contributor)
-          map[key] = { label: contrib ? contrib.label.split(" ")[0] : t.contributor, color: contrib?.color ?? "#6366f1", total: 0 }
-        } else {
-          const firstName = t.user.name.split(" ")[0]
-          const contrib = CONTRIBUTORS.find(c => c.label.toLowerCase() === firstName.toLowerCase())
-          map[key] = { label: firstName, color: contrib?.color ?? myContrib?.color ?? "#6366f1", total: 0 }
-        }
+  // ── Gemeinsame Auslagen: kumuliert aus allen Split-Buchungen ──
+  const debtTxs = debtData?.transactions ?? []
+  const byPerson: PersonStat[] = Object.values(
+    debtTxs.reduce((acc, t) => {
+      const payer = t.contributor
+      if (!payer) return acc
+      if (!acc[payer]) {
+        const c = CONTRIBUTORS.find(x => x.value === payer)
+        acc[payer] = { label: c ? c.label.split(" ")[0] : payer, color: c?.color ?? "#6366f1", total: 0 }
       }
-      map[key].total += t.amount
-    }
-    return Object.values(map).sort((a, b) => b.total - a.total)
-  })()
-  const sharedTotal = bySharedPerson.reduce((s, p) => s + p.total, 0)
-  const sharedDiff = bySharedPerson.length >= 2 ? bySharedPerson[0].total - bySharedPerson[1].total : 0
-  const turnPerson = bySharedPerson.length >= 2 ? bySharedPerson[bySharedPerson.length - 1] : null
+      acc[payer].total += t.amount
+      return acc
+    }, {} as Record<string, PersonStat>)
+  ).sort((a, b) => b.total - a.total)
+  const personTotal = byPerson.reduce((s, p) => s + p.total, 0)
+  const bySharedCategory: CategoryStat[] = Object.values(
+    debtTxs.reduce((acc, t) => {
+      const key = t.category.id
+      if (!acc[key]) acc[key] = { id: t.category.id, name: t.category.name, icon: t.category.icon, total: 0, budget: null }
+      acc[key].total += t.amount
+      return acc
+    }, {} as Record<string, CategoryStat>)
+  ).sort((a, b) => b.total - a.total)
+  const sharedCatTotal = bySharedCategory.reduce((s, c) => s + c.total, 0)
 
   const totalMonthly = provisions.reduce((s, p) => s + monthlyAmount(p), 0)
   const nextDueDate = (acc: Account & { balance: number }) => {
@@ -284,7 +316,7 @@ export default function StatsPage() {
     <PullToRefresh onRefresh={refresh}>
     <div className="max-w-lg mx-auto">
       <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
-        {tab !== "planung" && (
+        {(tab === "expense" || tab === "income") && (
           <div className="flex items-center justify-between mb-3">
             <button onClick={prevPeriod} className="text-zinc-400 hover:text-white transition-colors">
               <ChevronLeft className="w-5 h-5" />
@@ -295,7 +327,7 @@ export default function StatsPage() {
             </button>
           </div>
         )}
-        {tab !== "planung" && accounts.length > 1 && (
+        {(tab === "expense" || tab === "income") && accounts.length > 1 && (
           <div className="flex gap-2 flex-wrap mb-3">
             {accounts.map(acc => (
               <button key={acc.id} type="button"
@@ -307,11 +339,11 @@ export default function StatsPage() {
             ))}
           </div>
         )}
-        <div className="flex gap-2">
-          {(["expense", "income", "planung"] as const).map(t => (
+        <div className="flex flex-wrap gap-2">
+          {(["expense", "income", "planung", "gemeinsam"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${tab === t ? "bg-white text-black" : "bg-zinc-900 text-zinc-500"}`}>
-              {t === "expense" ? "Ausgaben" : t === "income" ? "Einnahmen" : "Planung"}
+              {t === "expense" ? "Ausgaben" : t === "income" ? "Einnahmen" : t === "planung" ? "Planung" : "Gemeinsam"}
             </button>
           ))}
         </div>
@@ -322,51 +354,6 @@ export default function StatsPage() {
         {/* ── Ausgaben / Einnahmen tabs ── */}
         {(tab === "expense" || tab === "income") && (
           <>
-            {!loading && bySharedPerson.length > 0 && tab === "expense" && (
-              <div>
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Gemeinsame Auslagen</p>
-                <div className="bg-white rounded-3xl overflow-hidden">
-                  {bySharedPerson.map((p, i) => {
-                    const pct = sharedTotal > 0 ? (p.total / sharedTotal) * 100 : 0
-                    return (
-                      <div key={p.label} className={`px-5 py-4 ${i < bySharedPerson.length - 1 ? "border-b border-gray-100" : ""}`}>
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0" style={{ backgroundColor: p.color }}>{p.label[0]}</div>
-                          <p className="text-sm font-semibold text-gray-900 flex-1">{p.label}</p>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-gray-900 tabular-nums">{formatCHF(p.total)}</p>
-                            <p className="text-xs text-gray-400">{pct.toFixed(0)}%</p>
-                          </div>
-                        </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: p.color }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {turnPerson && (
-                    <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
-                      {sharedDiff < 0.5 ? (
-                        <p className="text-xs text-center text-gray-500 font-semibold">Alles ausgeglichen 🤝</p>
-                      ) : (
-                        <p className="text-xs text-center text-gray-600">
-                          <span className="font-bold" style={{ color: turnPerson.color }}>{turnPerson.label}</span>
-                          {" "}ist dran · <span className="tabular-nums">{formatCHF(sharedDiff)}</span> Unterschied
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {bySharedPerson.length === 1 && (
-                    <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
-                      <p className="text-xs text-center text-gray-500">
-                        Nur <span className="font-bold" style={{ color: bySharedPerson[0].color }}>{bySharedPerson[0].label}</span> hat bisher ausgelegt
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div>
               <div className="flex items-baseline gap-2 mb-3">
                 <p className="text-3xl font-black text-gray-900 tabular-nums">{formatCHF(total)}</p>
@@ -510,6 +497,109 @@ export default function StatsPage() {
                 </div>
               )}
             </div>
+          </>
+        )}
+
+        {/* ── Gemeinsam tab (kumulierte Abrechnung) ── */}
+        {tab === "gemeinsam" && (
+          <>
+            {debtLoading && !debtData ? (
+              <>
+                <Skeleton className="h-28 w-full rounded-3xl" />
+                <SkeletonList count={4} />
+              </>
+            ) : debtData ? (
+              <>
+                {/* Netto-Saldo */}
+                {(() => {
+                  const partnerOwes = debtData.net > 0
+                  const netAmount = Math.abs(debtData.net)
+                  return (
+                    <div className="rounded-3xl p-6" style={{ backgroundColor: debtData.partnerColor + "20", border: `1px solid ${debtData.partnerColor}40` }}>
+                      {netAmount < 0.01 ? (
+                        <div className="text-center">
+                          <p className="text-white text-xl font-bold mb-1">Alles ausgeglichen 🤝</p>
+                          <p className="text-zinc-400 text-sm">Keine offenen Schulden</p>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: debtData.partnerColor }}>
+                            {partnerOwes ? `${debtData.partnerLabel} schuldet dir` : `Du schuldest ${debtData.partnerLabel}`}
+                          </p>
+                          <p className="text-white text-4xl font-black tabular-nums">{formatCHF(netAmount)}</p>
+                          {debtData.partnerOwesMe > 0 && debtData.iOwePartner > 0 && (
+                            <p className="text-zinc-500 text-xs mt-2">
+                              {debtData.partnerLabel} schuldet {formatCHF(debtData.partnerOwesMe)} · Du schuldest {formatCHF(debtData.iOwePartner)}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* Pro Person — wer hat ausgelegt */}
+                {byPerson.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Wer hat ausgelegt</p>
+                    <div className="bg-white rounded-3xl overflow-hidden">
+                      {byPerson.map((p, i) => {
+                        const pct = personTotal > 0 ? (p.total / personTotal) * 100 : 0
+                        return (
+                          <div key={p.label} className={`px-5 py-4 ${i < byPerson.length - 1 ? "border-b border-gray-100" : ""}`}>
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0" style={{ backgroundColor: p.color }}>{p.label[0]}</div>
+                              <p className="text-sm font-semibold text-gray-900 flex-1">{p.label}</p>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-gray-900 tabular-nums">{formatCHF(p.total)}</p>
+                                <p className="text-xs text-gray-400">{pct.toFixed(0)}%</p>
+                              </div>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: p.color }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pro Kategorie — gemeinsame Ausgaben */}
+                <div>
+                  <div className="flex items-baseline gap-2 mb-3">
+                    <p className="text-3xl font-black text-gray-900 tabular-nums">{formatCHF(sharedCatTotal)}</p>
+                    <p className="text-sm text-zinc-400 font-medium">gemeinsam ausgegeben</p>
+                  </div>
+                  {bySharedCategory.length === 0 ? (
+                    <p className="text-zinc-500 text-sm text-center py-12">
+                      Noch keine geteilten Ausgaben.<br />Scanne eine Quittung und wähle 50/50 oder Nur {debtData.partnerLabel}.
+                    </p>
+                  ) : (
+                    <div className="bg-white rounded-3xl overflow-hidden">
+                      {bySharedCategory.map((cat, i) => {
+                        const pct = sharedCatTotal > 0 ? (cat.total / sharedCatTotal) * 100 : 0
+                        return (
+                          <div key={cat.id} className={`px-5 py-4 ${i < bySharedCategory.length - 1 ? "border-b border-gray-100" : ""}`}>
+                            <div className="flex items-center gap-3 mb-2.5">
+                              <span className="text-xl w-7 text-center">{cat.icon}</span>
+                              <p className="text-sm font-semibold text-gray-900 flex-1">{cat.name}</p>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-gray-900 tabular-nums">{formatCHF(cat.total)}</p>
+                                <p className="text-xs text-gray-400">{pct.toFixed(0)}%</p>
+                              </div>
+                            </div>
+                            <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-gray-900" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
           </>
         )}
       </div>
