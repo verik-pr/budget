@@ -8,7 +8,7 @@ import { ConfirmProvider } from "@/components/confirm-sheet"
 import { ToastProvider } from "@/components/toast"
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#171411",
 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

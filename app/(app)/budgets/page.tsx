@@ -68,12 +68,12 @@ export default function BudgetsPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
+      <div className="ink-panel px-6 pt-safe pb-4 sticky top-0 z-10 rounded-b-[28px]">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+          <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Budgets</p>
+          <p className="kicker text-cream/45">Budgets</p>
         </div>
       </div>
 
@@ -83,24 +83,24 @@ export default function BudgetsPage() {
         ) : (
           <>
             {totalBudget > 0 && (
-              <div className="bg-zinc-900 rounded-2xl px-5 py-4">
+              <div className="ink-panel rounded-2xl px-5 py-4">
                 <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest mb-2">Diese Periode</p>
                 <div className="flex items-baseline justify-between">
-                  <p className="text-white text-2xl font-black tabular-nums">{formatCHF(totalSpent)}</p>
-                  <p className="text-zinc-500 text-sm tabular-nums">von {formatCHF(totalBudget)}</p>
+                  <p className="amount text-cream text-2xl">{formatCHF(totalSpent)}</p>
+                  <p className="text-cream/45 text-sm tabular-nums">von {formatCHF(totalBudget)}</p>
                 </div>
-                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden mt-3">
+                <div className="h-1.5 bg-cream/15 rounded-full overflow-hidden mt-3">
                   <div className={`h-full rounded-full transition-all ${
-                    totalSpent > totalBudget ? "bg-red-500" : totalSpent / totalBudget > 0.8 ? "bg-orange-400" : "bg-green-500"
+                    totalSpent > totalBudget ? "bg-blood" : totalSpent / totalBudget > 0.8 ? "bg-[#d99a4e]" : "bg-[#7fc89e]"
                   }`}
                     style={{ width: `${Math.min((totalSpent / totalBudget) * 100, 100)}%` }} />
                 </div>
               </div>
             )}
 
-            <p className="text-zinc-600 text-xs">Lass leer um kein Budget zu setzen.</p>
+            <p className="text-muted text-xs italic font-serif">Lass leer um kein Budget zu setzen.</p>
 
-            <div className="bg-white rounded-3xl overflow-hidden">
+            <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
               {categories.map((cat, i) => {
                 const draft = drafts[cat.id] ?? ""
                 const changed = (cat.budget?.toString() ?? "") !== draft
@@ -108,40 +108,40 @@ export default function BudgetsPage() {
                 const over = pct > 100
                 const near = pct > 80 && pct <= 100
                 return (
-                  <div key={cat.id} className={`px-5 py-4 ${i < categories.length - 1 ? "border-b border-gray-100" : ""}`}>
+                  <div key={cat.id} className={`px-5 py-4 ${i < categories.length - 1 ? "border-b border-rule/60" : ""}`}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="text-xl w-7 text-center">{cat.icon}</span>
-                      <p className="text-sm font-semibold text-gray-900 flex-1">{cat.name}</p>
-                      <div className="flex items-center gap-1 bg-gray-50 rounded-xl px-3 py-1.5">
+                      <p className="text-sm font-semibold text-ink flex-1">{cat.name}</p>
+                      <div className="flex items-center gap-1 bg-paper border border-rule rounded-xl px-3 py-1.5">
                         <input type="text" inputMode="decimal"
                           value={draft}
                           onChange={e => setDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
                           onBlur={() => save(cat)}
                           placeholder="—"
-                          className="w-16 bg-transparent text-sm text-gray-900 text-right tabular-nums focus:outline-none placeholder-gray-300" />
-                        <span className="text-xs text-gray-400">CHF</span>
+                          className="w-16 bg-transparent text-sm text-ink text-right tabular-nums focus:outline-none placeholder:text-faint" />
+                        <span className="text-xs text-muted">CHF</span>
                       </div>
                     </div>
                     {cat.budget && (
                       <>
                         <div className="flex justify-between text-xs mb-1">
-                          <p className="tabular-nums text-gray-500">
+                          <p className="tabular-nums text-muted">
                             {formatCHF(cat.spent)} / {formatCHF(cat.budget)}
                           </p>
-                          <p className={`tabular-nums font-semibold ${over ? "text-red-500" : near ? "text-orange-500" : "text-gray-400"}`}>
+                          <p className={`tabular-nums font-semibold ${over ? "text-blood" : near ? "text-[#c47b35]" : "text-muted"}`}>
                             {pct.toFixed(0)}%
                           </p>
                         </div>
-                        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-1 bg-rule/60 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${
-                            over ? "bg-red-500" : near ? "bg-orange-400" : "bg-gray-900"
+                            over ? "bg-blood" : near ? "bg-[#d99a4e]" : "bg-ink"
                           }`}
                             style={{ width: `${Math.min(pct, 100)}%` }} />
                         </div>
                       </>
                     )}
                     {changed && savingId === cat.id && (
-                      <p className="text-xs text-zinc-400 mt-1">Speichern…</p>
+                      <p className="text-xs text-muted mt-1">Speichern…</p>
                     )}
                   </div>
                 )

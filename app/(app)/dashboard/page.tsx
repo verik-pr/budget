@@ -64,27 +64,27 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return (
     <div className="max-w-lg mx-auto">
       {/* Header */}
-      <div className="bg-black px-6 pt-safe pb-10">
-        <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-4">{monthLabel}</p>
+      <div className="ink-panel px-6 pt-safe pb-10 rounded-b-[32px]">
+        <p className="kicker text-cream/40 mb-4">{monthLabel}</p>
 
         <AccountSelector accounts={visibleAccounts} selected={selectedId} />
 
-        <p className="text-white text-5xl font-black tracking-tight tabular-nums">
+        <p className="amount text-cream text-[56px] leading-none">
           {formatCHF(balance)}
         </p>
-        <p className="text-zinc-600 text-sm mt-2">Bilanz</p>
+        <p className="kicker text-cream/35 mt-3">Bilanz</p>
 
-        <div className="flex gap-6 mt-8">
+        <div className="flex gap-6 mt-8 border-t border-cream/10 pt-5">
           <div>
-            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-1">Einnahmen</p>
-            <p className="text-green-400 text-xl font-bold tabular-nums">+{formatCHF(income)}</p>
+            <p className="kicker text-cream/40 mb-1.5">Einnahmen</p>
+            <p className="amount text-[#7fc89e] text-xl">+{formatCHF(income)}</p>
           </div>
-          <div className="w-px bg-zinc-800" />
+          <div className="w-px bg-cream/10" />
           <div>
-            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-1">Ausgaben</p>
-            <p className="text-white text-xl font-bold tabular-nums">−{formatCHF(expenses)}</p>
+            <p className="kicker text-cream/40 mb-1.5">Ausgaben</p>
+            <p className="amount text-cream text-xl">−{formatCHF(expenses)}</p>
             {expenseDiff !== null && (
-              <p className={`text-xs mt-0.5 font-medium ${expenseDiff <= 0 ? "text-green-500" : "text-red-400"}`}>
+              <p className={`text-xs mt-1 font-medium ${expenseDiff <= 0 ? "text-[#7fc89e]" : "text-[#e89890]"}`}>
                 {expenseDiff >= 0 ? "+" : ""}{expenseDiff}% vs. Vormonat
               </p>
             )}
@@ -92,22 +92,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
 
-      <div className="px-6 pt-6">
-        <ForecastCard accountId={selectedId ?? null} />
-      </div>
-
-      {/* Transactions */}
-      <div className="px-6 pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Letzte Buchungen</p>
-          <Link href="/transactions" className="text-xs font-semibold text-green-500">Alle</Link>
+      <div className="stagger">
+        <div className="px-6 pt-6">
+          <ForecastCard accountId={selectedId ?? null} />
         </div>
 
-        {transactions.length === 0 ? (
-          <p className="text-zinc-500 text-sm text-center py-12">Noch keine Buchungen diese Periode</p>
-        ) : (
-          <TransactionList transactions={transactions.slice(0, 12)} />
-        )}
+        {/* Transactions */}
+        <div className="px-6 pt-6">
+          <div className="flex items-baseline justify-between mb-4">
+            <p className="kicker text-muted">Letzte Buchungen</p>
+            <Link href="/transactions" className="text-xs font-bold text-pine">Alle</Link>
+          </div>
+
+          {transactions.length === 0 ? (
+            <p className="text-muted text-sm text-center py-12">Noch keine Buchungen diese Periode</p>
+          ) : (
+            <TransactionList transactions={transactions.slice(0, 12)} />
+          )}
+        </div>
       </div>
     </div>
   )

@@ -1,8 +1,17 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import { Fraunces, Schibsted_Grotesk } from "next/font/google"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  axes: ["opsz"],
+})
+
+const schibsted = Schibsted_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-schibsted",
+})
 
 export const metadata: Metadata = {
   title: "Budget",
@@ -15,13 +24,13 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#000000",
+  themeColor: "#171411",
   viewportFit: "cover",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de" className={inter.variable}>
+    <html lang="de" className={`${fraunces.variable} ${schibsted.variable}`}>
       <body>{children}</body>
     </html>
   )

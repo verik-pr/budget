@@ -35,9 +35,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map(t => (
           <div key={t.id}
             className={`toast-panel ${t.leaving ? "leaving" : ""} pointer-events-auto max-w-sm w-full px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 ${
-              t.type === "error" ? "bg-red-500 text-white" :
-              t.type === "info" ? "bg-zinc-900 text-white" :
-              "bg-green-500 text-black"
+              t.type === "error" ? "bg-blood text-cream" :
+              t.type === "info" ? "ink-panel text-cream" :
+              "bg-pine text-cream"
             }`}>
             {t.type === "success" && <Check className="w-4 h-4 flex-shrink-0" strokeWidth={3} />}
             {t.type === "error" && <AlertCircle className="w-4 h-4 flex-shrink-0" />}

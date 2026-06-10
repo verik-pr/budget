@@ -69,28 +69,29 @@ export default function EditTransactionPage() {
 
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto min-h-screen bg-black">
+      <div className="max-w-lg mx-auto">
         <div className="px-6 pt-safe pb-6 space-y-5">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-14 w-full" />
+          <Skeleton light className="h-5 w-32" />
+          <Skeleton light className="h-14 w-full" />
+          <Skeleton light className="h-14 w-full" />
+          <Skeleton light className="h-32 w-full" />
+          <Skeleton light className="h-14 w-full" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-lg mx-auto min-h-screen bg-black">
-      <div className="px-6 pt-safe pb-6">
-
-        <div className="flex items-center gap-3 mb-8">
-          <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+    <div className="max-w-lg mx-auto">
+      <div className="ink-panel px-6 pt-safe pb-4 rounded-b-[28px]">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Buchung bearbeiten</p>
+          <p className="kicker text-cream/45">Buchung bearbeiten</p>
         </div>
+      </div>
+      <div className="stagger px-6 pt-5 pb-6">
 
         <div className="flex gap-3 mb-8">
           {(["expense", "income"] as const).map(t => (
@@ -100,10 +101,10 @@ export default function EditTransactionPage() {
                 const first = categories.find(c => c.type === t)
                 if (first) setCategoryId(first.id)
               }}
-              className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`px-5 py-2 rounded-full text-sm font-bold transition-all active:scale-[0.97] ${
                 type === t
-                  ? t === "expense" ? "bg-white text-black" : "bg-green-500 text-black"
-                  : "bg-zinc-900 text-zinc-500"
+                  ? t === "expense" ? "bg-ink text-cream" : "bg-pine text-cream"
+                  : "bg-card border border-rule text-muted"
               }`}>
               {t === "expense" ? "Ausgabe" : "Einnahme"}
             </button>
@@ -111,36 +112,36 @@ export default function EditTransactionPage() {
         </div>
 
         <div className="mb-8">
-          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Betrag CHF</p>
+          <p className="kicker text-muted mb-2">Betrag CHF</p>
           <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" required value={amount}
             onChange={e => setAmount(e.target.value)}
-            className="w-full bg-transparent text-white text-5xl font-black focus:outline-none tabular-nums" />
-          <div className="h-px bg-zinc-800 mt-3" />
+            className="amount w-full bg-transparent text-ink text-[52px] leading-none focus:outline-none" />
+          <div className="h-px bg-rule mt-3" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Datum</p>
+              <p className="kicker text-muted mb-2">Datum</p>
               <input type="date" required value={date} onChange={e => setDate(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zinc-600" />
+                className="w-full bg-card border border-rule rounded-2xl px-4 py-3 text-ink text-sm focus:outline-none focus:border-pine/50" />
             </div>
             <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Beschreibung</p>
+              <p className="kicker text-muted mb-2">Beschreibung</p>
               <input type="text" value={description} onChange={e => setDescription(e.target.value)}
                 placeholder="z.B. Migros Einkauf"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zinc-600 placeholder-zinc-700" />
+                className="w-full bg-card border border-rule rounded-2xl px-4 py-3 text-ink text-sm focus:outline-none focus:border-pine/50 placeholder:text-faint" />
             </div>
           </div>
 
           <div>
-            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Kategorie</p>
+            <p className="kicker text-muted mb-3">Kategorie</p>
             <div className="grid grid-cols-4 gap-2">
               {filtered.map(cat => (
                 <button key={cat.id} type="button" onClick={() => setCategoryId(cat.id)}
-                  className={`rounded-2xl py-3 px-2 text-center transition-all ${categoryId === cat.id ? "bg-white" : "bg-zinc-900"}`}>
+                  className={`rounded-2xl py-3 px-2 text-center transition-all active:scale-[0.97] ${categoryId === cat.id ? "bg-ink shadow-card" : "bg-card border border-rule"}`}>
                   <div className="text-xl mb-1">{cat.icon}</div>
-                  <div className={`text-[10px] font-semibold leading-tight ${categoryId === cat.id ? "text-black" : "text-zinc-500"}`}>
+                  <div className={`text-[10px] font-semibold leading-tight ${categoryId === cat.id ? "text-cream" : "text-muted"}`}>
                     {cat.name}
                   </div>
                 </button>
@@ -150,13 +151,13 @@ export default function EditTransactionPage() {
 
           {accounts.length > 0 && (
             <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Konto</p>
+              <p className="kicker text-muted mb-3">Konto</p>
               <div className="flex gap-2 flex-wrap">
                 {accounts.map(acc => (
                   <button key={acc.id} type="button"
                     onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
                     style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${accountId === acc.id ? "text-white" : "bg-zinc-900 text-zinc-400"}`}>
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97] ${accountId === acc.id ? "text-cream shadow-md" : "bg-card border border-rule text-muted"}`}>
                     <span>{acc.icon}</span>
                     <span>{acc.name}</span>
                   </button>
@@ -166,13 +167,13 @@ export default function EditTransactionPage() {
           )}
 
           <div>
-            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Von wem</p>
+            <p className="kicker text-muted mb-3">Von wem</p>
             <div className="grid grid-cols-2 gap-2">
               {CONTRIBUTORS.map(c => (
                 <button key={c.value} type="button"
                   onClick={() => setContributor(contributor === c.value ? "" : c.value)}
                   style={contributor === c.value ? { backgroundColor: c.color } : {}}
-                  className={`rounded-2xl py-3 px-3 text-sm font-bold transition-all text-left ${contributor === c.value ? "text-white" : "bg-zinc-900 text-zinc-400"}`}>
+                  className={`rounded-2xl py-3 px-3 text-sm font-bold transition-all text-left active:scale-[0.97] ${contributor === c.value ? "text-cream shadow-md" : "bg-card border border-rule text-muted"}`}>
                   {c.label}
                 </button>
               ))}
@@ -180,7 +181,7 @@ export default function EditTransactionPage() {
           </div>
 
           <button type="submit" disabled={saving || !amount || !categoryId}
-            className="w-full bg-green-500 text-black rounded-2xl py-4 font-black text-sm disabled:opacity-30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+            className="w-full bg-pine text-cream rounded-2xl py-4 font-bold text-sm disabled:opacity-30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
             <Check className="w-4 h-4" />
             {saving ? "Speichern…" : "Änderungen speichern"}
           </button>

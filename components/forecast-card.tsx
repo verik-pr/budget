@@ -31,9 +31,9 @@ export function ForecastCard({ accountId }: { accountId: string | null }) {
 
   if (loading) {
     return (
-      <div className="bg-zinc-900 rounded-2xl px-5 py-4">
+      <div className="ink-panel rounded-3xl px-5 py-4 border border-ink/40">
         <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-3.5 h-3.5 text-green-500" />
+          <Sparkles className="w-3.5 h-3.5 text-cream/70" />
           <Skeleton className="h-3 w-20" />
         </div>
         <Skeleton className="h-7 w-32 mb-2" />
@@ -45,13 +45,13 @@ export function ForecastCard({ accountId }: { accountId: string | null }) {
   if (error || !data) return null
 
   return (
-    <div className="bg-zinc-900 rounded-2xl px-5 py-4">
+    <div className="ink-panel rounded-3xl px-5 py-4 border border-ink/40">
       <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="w-3.5 h-3.5 text-green-500" />
-        <p className="text-zinc-500 text-xs font-semibold uppercase tracking-widest">Prognose</p>
+        <Sparkles className="w-3.5 h-3.5 text-cream/70" />
+        <p className="kicker text-cream/45">Prognose</p>
       </div>
-      <p className="text-white text-2xl font-black tabular-nums mb-1">{formatCHF(data.projected)}</p>
-      <p className="text-zinc-500 text-xs leading-snug">{data.message}</p>
+      <p className="amount text-cream text-[26px] mb-1">{formatCHF(data.projected)}</p>
+      <p className="text-cream/50 text-xs leading-snug">{data.message}</p>
     </div>
   )
 }

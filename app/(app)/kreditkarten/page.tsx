@@ -36,16 +36,16 @@ function CardForm({ initial, onSave, onCancel }: {
   const [ownerName, setOwnerName] = useState(initial?.ownerName ?? "")
 
   return (
-    <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
+    <div className="bg-card border border-rule shadow-card rounded-2xl p-4 space-y-4">
       <div className="flex gap-2">
         <input value={icon} onChange={e => setIcon(e.target.value)}
-          className="w-14 bg-zinc-800 rounded-xl px-3 py-2.5 text-xl text-center focus:outline-none" />
+          className="w-14 bg-paper border border-rule rounded-xl px-3 py-2.5 text-xl text-center focus:outline-none focus:border-pine/50" />
         <input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. Visa Erik"
-          className="flex-1 bg-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none" />
+          className="flex-1 bg-paper border border-rule rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-faint focus:outline-none focus:border-pine/50" />
       </div>
 
       <div>
-        <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Farbe</p>
+        <p className="kicker text-muted mb-2">Farbe</p>
         <div className="flex gap-2 flex-wrap">
           {COLORS.map(c => (
             <button key={c} type="button" onClick={() => setColor(c)}
@@ -59,34 +59,34 @@ function CardForm({ initial, onSave, onCancel }: {
 
       <div className="flex gap-3">
         <div className="flex-1">
-          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Wessen Karte</p>
+          <p className="kicker text-muted mb-2">Wessen Karte</p>
           <div className="flex gap-2 flex-wrap">
             {OWNERS.map(o => (
               <button key={o} type="button"
                 onClick={() => setOwnerName(o)}
                 style={ownerName === o ? { backgroundColor: CONTRIBUTORS.find(c => c.label.startsWith(o))?.color ?? "#6366f1" } : {}}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${ownerName === o ? "text-white" : "bg-zinc-800 text-zinc-400"}`}>
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${ownerName === o ? "text-cream" : "bg-paper border border-rule text-muted"}`}>
                 {o || "Beide"}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Fällig am</p>
-          <div className="flex items-center gap-1 bg-zinc-800 rounded-xl px-3 py-2.5">
+          <p className="kicker text-muted mb-2">Fällig am</p>
+          <div className="flex items-center gap-1 bg-paper border border-rule rounded-xl px-3 py-2.5">
             <input type="text" inputMode="numeric" value={dueDay} onChange={e => setDueDay(e.target.value)}
-              className="w-8 bg-transparent text-sm text-white text-center focus:outline-none" />
-            <span className="text-zinc-500 text-xs">. des Monats</span>
+              className="w-8 bg-transparent text-sm text-ink text-center focus:outline-none" />
+            <span className="text-muted text-xs">. des Monats</span>
           </div>
         </div>
       </div>
 
       <div className="flex gap-2 pt-1">
-        <button onClick={onCancel} className="flex-1 bg-zinc-800 text-zinc-400 rounded-xl py-2.5 text-sm font-bold">Abbrechen</button>
+        <button onClick={onCancel} className="flex-1 bg-paper border border-rule text-muted rounded-xl py-2.5 text-sm font-bold">Abbrechen</button>
         <button
           onClick={() => { if (name) onSave({ name, icon, color, type: "credit", dueDay: parseInt(dueDay) || 15, ownerName: ownerName || null }) }}
           disabled={!name}
-          className="flex-1 bg-green-500 text-black rounded-xl py-2.5 text-sm font-bold disabled:opacity-30">
+          className="flex-1 bg-pine text-cream rounded-xl py-2.5 text-sm font-bold disabled:opacity-30">
           Speichern
         </button>
       </div>
@@ -162,21 +162,22 @@ export default function KreditkartenPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto min-h-screen bg-black">
-      <div className="px-6 pt-safe pb-8">
-
-        <div className="flex items-center gap-3 mb-8">
-          <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+    <div className="max-w-lg mx-auto">
+      <div className="ink-panel px-6 pt-safe pb-4 sticky top-0 z-10 rounded-b-[28px]">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Kreditkarten</p>
+          <p className="kicker text-cream/45">Kreditkarten</p>
         </div>
+      </div>
 
+      <div className="px-6 pt-4 pb-8">
         <div className="space-y-3">
           {loading ? (
             <SkeletonList count={3} />
           ) : cards.length === 0 && !showForm ? (
-            <p className="text-zinc-500 text-sm text-center py-12">Noch keine Kreditkarten erfasst.</p>
+            <p className="text-muted text-sm text-center py-12">Noch keine Kreditkarten erfasst.</p>
           ) : (
             cards.map(card => (
               <div key={card.id}>
@@ -186,23 +187,23 @@ export default function KreditkartenPage() {
                     onSave={data => updateCard(card.id, data)}
                     onCancel={() => setEditingId(null)} />
                 ) : (
-                  <div className="bg-zinc-900 rounded-2xl px-4 py-4 flex items-center gap-4">
+                  <div className="bg-card border border-rule shadow-card rounded-2xl px-4 py-4 flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
                       style={{ backgroundColor: card.color + "30" }}>
                       {card.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm">{card.name}</p>
-                      <p className="text-zinc-500 text-xs mt-0.5">
+                      <p className="text-ink font-bold text-sm">{card.name}</p>
+                      <p className="text-muted text-xs mt-0.5">
                         {card.ownerName && <span>{card.ownerName} · </span>}
                         fällig am {card.dueDay ?? 15}. des Monats
                       </p>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => setEditingId(card.id)} className="text-zinc-600 hover:text-white p-2 transition-colors">
+                      <button onClick={() => setEditingId(card.id)} className="text-faint hover:text-pine p-2 transition-colors">
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button onClick={() => deleteCard(card.id)} className="text-zinc-600 hover:text-red-400 p-2 transition-colors">
+                      <button onClick={() => deleteCard(card.id)} className="text-faint hover:text-blood p-2 transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -218,7 +219,7 @@ export default function KreditkartenPage() {
 
           {!showForm && !editingId && (
             <button onClick={() => setShowForm(true)}
-              className="w-full flex items-center justify-center gap-2 bg-zinc-900 text-zinc-500 rounded-2xl py-4 text-sm font-bold hover:text-white transition-colors active:bg-zinc-800">
+              className="w-full flex items-center justify-center gap-2 bg-card border border-dashed border-rule text-muted rounded-2xl py-4 text-sm font-bold hover:text-ink transition-colors active:bg-paper">
               <Plus className="w-4 h-4" />
               Kreditkarte hinzufügen
             </button>

@@ -155,37 +155,37 @@ export default function NotificationsPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
+      <div className="ink-panel px-6 pt-safe pb-4 sticky top-0 z-10 rounded-b-[28px]">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+          <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Notifications</p>
+          <p className="kicker text-cream/45">Notifications</p>
         </div>
       </div>
 
       <div className="px-6 pt-4 pb-8 space-y-4">
         {permission === "unsupported" ? (
-          <div className="bg-zinc-900 rounded-2xl p-5 text-center">
-            <BellOff className="w-8 h-8 text-zinc-500 mx-auto mb-3" />
-            <p className="text-white text-sm font-bold mb-1">Nicht unterstützt</p>
-            <p className="text-zinc-500 text-xs">Dein Browser unterstützt keine Push-Notifications. Auf iOS musst du die App über „Zum Home-Bildschirm" installieren.</p>
+          <div className="ink-panel rounded-2xl p-5 text-center">
+            <BellOff className="w-8 h-8 text-cream/40 mx-auto mb-3" />
+            <p className="text-cream text-sm font-bold mb-1">Nicht unterstützt</p>
+            <p className="text-cream/50 text-xs">Dein Browser unterstützt keine Push-Notifications. Auf iOS musst du die App über „Zum Home-Bildschirm" installieren.</p>
           </div>
         ) : (
           <>
-            <div className="bg-zinc-900 rounded-2xl p-5">
+            <div className="ink-panel rounded-2xl p-5">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: subscribed ? "#22c55e20" : "#71717a20" }}>
+                  style={{ backgroundColor: subscribed ? "rgba(127,200,158,0.15)" : "rgba(243,234,217,0.08)" }}>
                   {subscribed
-                    ? <Bell className="w-5 h-5 text-green-500" />
-                    : <BellOff className="w-5 h-5 text-zinc-400" />}
+                    ? <Bell className="w-5 h-5 text-[#7fc89e]" />
+                    : <BellOff className="w-5 h-5 text-cream/50" />}
                 </div>
                 <div className="flex-1">
-                  <p className="text-white text-sm font-bold">
+                  <p className="text-cream text-sm font-bold">
                     {subscribed ? "Notifications aktiv" : "Notifications nicht aktiv"}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-0.5">
+                  <p className="text-cream/45 text-xs mt-0.5">
                     {permission === "denied"
                       ? "Berechtigung verweigert · in Einstellungen freigeben"
                       : subscribed ? "Du bekommst Push-Nachrichten" : "Tippe Aktivieren um Push zu erlauben"}
@@ -195,45 +195,45 @@ export default function NotificationsPage() {
               {subscribed ? (
                 <div className="flex gap-2">
                   <button onClick={sendTest} disabled={busy}
-                    className="flex-1 bg-zinc-800 text-zinc-300 rounded-xl py-2.5 text-sm font-bold active:opacity-70 disabled:opacity-30">
+                    className="flex-1 bg-cream/10 text-cream/80 border border-cream/15 rounded-xl py-2.5 text-sm font-bold active:opacity-70 disabled:opacity-30">
                     Test
                   </button>
                   <button onClick={disable} disabled={busy}
-                    className="flex-1 bg-zinc-800 text-zinc-300 rounded-xl py-2.5 text-sm font-bold active:opacity-70 disabled:opacity-30">
+                    className="flex-1 bg-cream/10 text-cream/80 border border-cream/15 rounded-xl py-2.5 text-sm font-bold active:opacity-70 disabled:opacity-30">
                     Deaktivieren
                   </button>
                 </div>
               ) : (
                 <button onClick={enable} disabled={busy || permission === "denied"}
-                  className="w-full bg-green-500 text-black rounded-xl py-2.5 text-sm font-bold active:opacity-70 disabled:opacity-30">
+                  className="w-full bg-cream text-ink rounded-xl py-2.5 text-sm font-bold active:opacity-70 disabled:opacity-30">
                   {busy ? "…" : "Aktivieren"}
                 </button>
               )}
             </div>
 
             <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3 px-1">Welche Notifications</p>
+              <p className="kicker text-muted mb-3 px-1">Welche Notifications</p>
               {loading ? (
-                <div className="bg-white rounded-3xl p-4 space-y-3">
+                <div className="bg-card border border-rule shadow-card rounded-3xl p-4 space-y-3">
                   {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} light className="h-10 w-full" />)}
                 </div>
               ) : prefs && (
-                <div className="bg-white rounded-3xl overflow-hidden">
+                <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
                   {FLAG_LABELS.map((flag, i) => (
                     <button key={flag.key} onClick={() => togglePref(flag.key)}
-                      className={`w-full flex items-center gap-4 px-5 py-4 text-left active:bg-gray-50 ${i < FLAG_LABELS.length - 1 ? "border-b border-gray-100" : ""}`}>
+                      className={`w-full flex items-center gap-4 px-5 py-4 text-left active:bg-paper/60 ${i < FLAG_LABELS.length - 1 ? "border-b border-rule/60" : ""}`}>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">{flag.label}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{flag.desc}</p>
+                        <p className="text-sm font-semibold text-ink">{flag.label}</p>
+                        <p className="text-xs text-muted mt-0.5">{flag.desc}</p>
                       </div>
-                      <div className={`w-11 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 ${prefs[flag.key] ? "bg-green-500" : "bg-gray-200"}`}>
-                        <div className={`w-6 h-6 bg-white rounded-full shadow transition-transform ${prefs[flag.key] ? "translate-x-4" : ""}`} />
+                      <div className={`w-11 h-7 rounded-full p-0.5 transition-colors flex-shrink-0 ${prefs[flag.key] ? "bg-pine" : "bg-rule"}`}>
+                        <div className={`w-6 h-6 bg-card rounded-full shadow transition-transform ${prefs[flag.key] ? "translate-x-4" : ""}`} />
                       </div>
                     </button>
                   ))}
                 </div>
               )}
-              <p className="text-zinc-700 text-xs mt-3 px-1">Auch wenn Notifications aktiv sind, kommen nur Nachrichten für aktivierte Typen an.</p>
+              <p className="text-muted text-xs mt-3 px-1 italic font-serif">Auch wenn Notifications aktiv sind, kommen nur Nachrichten für aktivierte Typen an.</p>
             </div>
           </>
         )}

@@ -29,34 +29,34 @@ function GoalForm({ onSave, onCancel }: {
   }
 
   return (
-    <div className="bg-zinc-900 rounded-2xl p-4 space-y-3">
+    <div className="bg-card border border-rule shadow-card rounded-2xl p-4 space-y-3">
       <div className="flex gap-2">
         <input value={icon} onChange={e => setIcon(e.target.value)}
-          className="w-14 bg-zinc-800 rounded-xl px-3 py-2 text-xl text-center focus:outline-none" />
+          className="w-14 bg-paper border border-rule rounded-xl px-3 py-2 text-xl text-center focus:outline-none focus:border-pine/50" />
         <input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. Urlaub, MacBook"
-          className="flex-1 bg-zinc-800 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none" />
+          className="flex-1 bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:border-pine/50" />
       </div>
       <div>
-        <p className="text-zinc-600 text-xs mb-2">Icon</p>
+        <p className="text-muted text-xs mb-2">Icon</p>
         <div className="flex gap-1.5 flex-wrap">
           {ICONS.map(i => (
             <button key={i} type="button" onClick={() => setIcon(i)}
-              className={`text-xl p-1.5 rounded-xl transition-all ${icon === i ? "bg-zinc-700" : ""}`}>
+              className={`text-xl p-1.5 rounded-xl transition-all ${icon === i ? "bg-pineSoft ring-1 ring-pine/40" : ""}`}>
               {i}
             </button>
           ))}
         </div>
       </div>
       <div>
-        <p className="text-zinc-600 text-xs mb-1">Zielbetrag CHF</p>
+        <p className="text-muted text-xs mb-1">Zielbetrag CHF</p>
         <input type="text" inputMode="decimal" value={targetAmount} onChange={e => setTargetAmount(e.target.value)}
           placeholder="2000.00"
-          className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none" />
+          className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:border-pine/50" />
       </div>
       <div className="flex gap-2 pt-1">
-        <button onClick={onCancel} className="flex-1 bg-zinc-800 text-zinc-400 rounded-xl py-2 text-sm font-bold">Abbrechen</button>
+        <button onClick={onCancel} className="flex-1 bg-paper border border-rule text-muted rounded-xl py-2 text-sm font-bold">Abbrechen</button>
         <button onClick={submit} disabled={!name || !targetAmount || saving}
-          className="flex-1 bg-green-500 text-black rounded-xl py-2 text-sm font-bold disabled:opacity-30">
+          className="flex-1 bg-pine text-cream rounded-xl py-2 text-sm font-bold disabled:opacity-30">
           {saving ? "Speichern…" : "Speichern"}
         </button>
       </div>
@@ -133,16 +133,16 @@ export default function GoalsPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
+      <div className="ink-panel px-6 pt-safe pb-4 sticky top-0 z-10 rounded-b-[28px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+            <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Sparziele</p>
+            <p className="kicker text-cream/45">Sparziele</p>
           </div>
           <button onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-1 text-xs font-bold text-green-500 active:opacity-70">
+            className="flex items-center gap-1 text-xs font-bold text-cream active:opacity-70">
             <Plus className="w-3.5 h-3.5" />Neu
           </button>
         </div>
@@ -154,7 +154,7 @@ export default function GoalsPage() {
         {loading ? (
           <SkeletonList count={3} />
         ) : goals.length === 0 && !showForm ? (
-          <p className="text-zinc-500 text-sm text-center py-12">
+          <p className="text-muted text-sm text-center py-12">
             Noch keine Sparziele.<br />Tippe auf + Neu um eines hinzuzufügen.
           </p>
         ) : (
@@ -163,32 +163,32 @@ export default function GoalsPage() {
             const remaining = goal.targetAmount - goal.savedAmount
             const done = pct >= 100
             return (
-              <div key={goal.id} className="bg-white rounded-3xl px-5 py-4">
+              <div key={goal.id} className="bg-card border border-rule shadow-card rounded-3xl px-5 py-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{goal.icon}</span>
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">{goal.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-sm font-semibold text-ink">{goal.name}</p>
+                      <p className="text-xs text-muted mt-0.5">
                         {formatCHF(goal.savedAmount)} von {formatCHF(goal.targetAmount)}
                       </p>
                     </div>
                   </div>
-                  <button onClick={() => deleteGoal(goal.id)} className="text-gray-200 hover:text-red-400 p-1">
+                  <button onClick={() => deleteGoal(goal.id)} className="text-faint hover:text-blood p-1">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
-                  <div className={`h-full rounded-full transition-all ${done ? "bg-green-500" : "bg-gray-900"}`}
+                <div className="h-1.5 bg-rule/60 rounded-full overflow-hidden mb-1.5">
+                  <div className={`h-full rounded-full transition-all ${done ? "bg-pine" : "bg-ink"}`}
                     style={{ width: `${pct}%` }} />
                 </div>
                 <div className="flex justify-between mb-3">
-                  <p className="text-xs text-gray-400 tabular-nums">{pct.toFixed(0)}%</p>
+                  <p className="text-xs text-muted tabular-nums">{pct.toFixed(0)}%</p>
                   {!done ? (
-                    <p className="text-xs text-gray-400 tabular-nums">Noch {formatCHF(remaining)}</p>
+                    <p className="text-xs text-muted tabular-nums">Noch {formatCHF(remaining)}</p>
                   ) : (
-                    <p className="text-xs text-green-600 font-semibold">Erreicht!</p>
+                    <p className="text-xs text-pine font-semibold">Erreicht!</p>
                   )}
                 </div>
 
@@ -198,9 +198,9 @@ export default function GoalsPage() {
                       value={adding[goal.id] || ""}
                       onChange={e => setAdding(a => ({ ...a, [goal.id]: e.target.value }))}
                       placeholder="Betrag einzahlen"
-                      className="flex-1 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none" />
+                      className="flex-1 bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:border-pine/50" />
                     <button onClick={() => addAmount(goal)}
-                      className="bg-green-500 text-black w-10 rounded-xl text-base font-bold active:opacity-70">
+                      className="bg-pine text-cream w-10 rounded-xl text-base font-bold active:opacity-70">
                       +
                     </button>
                   </div>

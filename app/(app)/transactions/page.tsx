@@ -95,25 +95,25 @@ export default function TransactionsPage() {
     <PullToRefresh onRefresh={() => fetchTransactions(false)}>
     <div className="max-w-lg mx-auto">
       {lightbox && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+        <div className="fixed inset-0 bg-ink/95 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
           <img src={`/api/photos/${lightbox}`} className="max-w-full max-h-full rounded-2xl" alt="" />
         </div>
       )}
 
-      <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
+      <div className="ink-panel px-6 pt-safe pb-4 sticky top-0 z-10 rounded-b-[28px]">
         <div className="flex items-center justify-between mb-3">
-          <button onClick={prevPeriod} className="text-zinc-400 hover:text-white transition-colors">
+          <button onClick={prevPeriod} className="text-cream/50 hover:text-cream transition-colors">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="text-center">
-            <p className="text-white font-bold text-sm">{periodLabel}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              <span className="text-green-400">+{formatCHF(income)}</span>
-              <span className="mx-1.5 text-zinc-700">·</span>
-              <span className="text-zinc-300">−{formatCHF(expenses)}</span>
+            <p className="display text-cream text-[15px]">{periodLabel}</p>
+            <p className="text-xs mt-1 tabular-nums">
+              <span className="text-[#7fc89e] font-semibold">+{formatCHF(income)}</span>
+              <span className="mx-1.5 text-cream/25">·</span>
+              <span className="text-cream/70 font-semibold">−{formatCHF(expenses)}</span>
             </p>
           </div>
-          <button onClick={nextPeriod} className="text-zinc-400 hover:text-white transition-colors">
+          <button onClick={nextPeriod} className="text-cream/50 hover:text-cream transition-colors">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -124,7 +124,7 @@ export default function TransactionsPage() {
               <button key={acc.id} type="button"
                 onClick={() => setAccountId(acc.id)}
                 style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${accountId === acc.id ? "text-white" : "bg-zinc-800 text-zinc-400"}`}>
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-[0.97] ${accountId === acc.id ? "text-cream shadow-md" : "bg-cream/10 text-cream/55 border border-cream/15"}`}>
                 <span>{acc.icon}</span><span>{acc.name}</span>
               </button>
             ))}
@@ -132,15 +132,15 @@ export default function TransactionsPage() {
         )}
 
         <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cream/30" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suchen…"
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600" />
+            className="w-full bg-cream/[0.06] border border-cream/15 rounded-xl pl-9 pr-3 py-2.5 text-sm text-cream placeholder:text-cream/30 focus:outline-none focus:border-cream/40" />
         </div>
 
         <div className="flex gap-2">
           {(["all", "expense", "income"] as const).map(f => (
             <button key={f} onClick={() => setFilterType(f)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all ${filterType === f ? "bg-white text-black" : "bg-zinc-900 text-zinc-500"}`}>
+              className={`text-xs font-bold px-3.5 py-1.5 rounded-full transition-all active:scale-[0.97] ${filterType === f ? "bg-cream text-ink" : "bg-cream/10 text-cream/55 border border-cream/15"}`}>
               {f === "all" ? "Alle" : f === "expense" ? "Ausgaben" : "Einnahmen"}
             </button>
           ))}
@@ -151,7 +151,7 @@ export default function TransactionsPage() {
         {loading ? (
           <SkeletonList count={6} />
         ) : visible.length === 0 ? (
-          <p className="text-zinc-500 text-sm text-center py-12">Keine Buchungen gefunden</p>
+          <p className="text-muted text-sm text-center py-12">Keine Buchungen gefunden</p>
         ) : (
           <TransactionList
             transactions={visible}

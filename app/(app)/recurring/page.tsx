@@ -47,12 +47,12 @@ function RuleForm({ categories, onSave, onCancel }: {
   }
 
   return (
-    <div className="bg-zinc-900 rounded-2xl p-4 space-y-3">
+    <div className="bg-card border border-rule shadow-card rounded-2xl p-4 space-y-3">
       <div className="flex gap-2">
         {(["expense", "income"] as const).map(t => (
           <button key={t} onClick={() => setType(t)}
             className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-              type === t ? (t === "income" ? "bg-green-500 text-black" : "bg-white text-black") : "bg-zinc-800 text-zinc-400"
+              type === t ? (t === "income" ? "bg-pine text-cream" : "bg-ink text-cream") : "bg-paper border border-rule text-muted"
             }`}>
             {t === "expense" ? "Ausgabe" : "Einnahme"}
           </button>
@@ -61,42 +61,42 @@ function RuleForm({ categories, onSave, onCancel }: {
 
       <input value={name} onChange={e => setName(e.target.value)}
         placeholder={type === "income" ? "z.B. Lohn, Miete-Einnahme" : "z.B. Netflix, Miete, Spotify"}
-        className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none" />
+        className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:border-pine/50" />
 
       <div className="flex gap-2">
         <div className="flex-1">
-          <p className="text-zinc-600 text-xs mb-1">Betrag CHF</p>
+          <p className="text-muted text-xs mb-1">Betrag CHF</p>
           <input type="text" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}
             placeholder="0.00"
-            className="w-full bg-zinc-800 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none" />
+            className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:border-pine/50" />
         </div>
         <div>
-          <p className="text-zinc-600 text-xs mb-1">Am</p>
-          <div className="flex items-center gap-1 bg-zinc-800 rounded-xl px-3 py-2">
+          <p className="text-muted text-xs mb-1">Am</p>
+          <div className="flex items-center gap-1 bg-paper border border-rule rounded-xl px-3 py-2">
             <input type="text" inputMode="numeric" value={dayOfMonth} onChange={e => setDayOfMonth(e.target.value)}
-              className="w-8 bg-transparent text-sm text-white text-center focus:outline-none" />
-            <span className="text-zinc-500 text-xs">. des Mt.</span>
+              className="w-8 bg-transparent text-sm text-ink text-center focus:outline-none" />
+            <span className="text-muted text-xs">. des Mt.</span>
           </div>
         </div>
       </div>
 
       <div>
-        <p className="text-zinc-600 text-xs mb-2">Kategorie</p>
+        <p className="text-muted text-xs mb-2">Kategorie</p>
         <div className="grid grid-cols-4 gap-1.5 max-h-44 overflow-y-auto">
           {filtered.map(cat => (
             <button key={cat.id} type="button" onClick={() => setCategoryId(cat.id)}
-              className={`rounded-xl p-2 text-center transition-all ${categoryId === cat.id ? "bg-zinc-700" : "bg-zinc-800"}`}>
+              className={`rounded-xl p-2 text-center transition-all ${categoryId === cat.id ? "bg-pineSoft ring-1 ring-pine/40" : "bg-paper border border-rule"}`}>
               <div className="text-xl">{cat.icon}</div>
-              <div className="text-[10px] text-zinc-400 mt-0.5 leading-tight truncate">{cat.name}</div>
+              <div className="text-[10px] text-muted mt-0.5 leading-tight truncate">{cat.name}</div>
             </button>
           ))}
         </div>
       </div>
 
       <div className="flex gap-2 pt-1">
-        <button onClick={onCancel} className="flex-1 bg-zinc-800 text-zinc-400 rounded-xl py-2 text-sm font-bold">Abbrechen</button>
+        <button onClick={onCancel} className="flex-1 bg-paper border border-rule text-muted rounded-xl py-2 text-sm font-bold">Abbrechen</button>
         <button onClick={submit} disabled={!name || !amount || !categoryId || saving}
-          className="flex-1 bg-green-500 text-black rounded-xl py-2 text-sm font-bold disabled:opacity-30">
+          className="flex-1 bg-pine text-cream rounded-xl py-2 text-sm font-bold disabled:opacity-30">
           {saving ? "Speichern…" : "Speichern"}
         </button>
       </div>
@@ -175,16 +175,16 @@ export default function RecurringPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-black px-6 pt-safe pb-4 sticky top-0 z-10">
+      <div className="ink-panel px-6 pt-safe pb-4 sticky top-0 z-10 rounded-b-[28px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+            <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Regeln</p>
+            <p className="kicker text-cream/45">Regeln</p>
           </div>
           <button onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-1 text-xs font-bold text-green-500 active:opacity-70">
+            className="flex items-center gap-1 text-xs font-bold text-cream active:opacity-70">
             <Plus className="w-3.5 h-3.5" />Neu
           </button>
         </div>
@@ -196,29 +196,29 @@ export default function RecurringPage() {
         {loading ? (
           <SkeletonList count={4} />
         ) : rules.length === 0 && !showForm ? (
-          <p className="text-zinc-500 text-sm text-center py-12">
+          <p className="text-muted text-sm text-center py-12">
             Noch keine Regeln.<br />Tippe auf + Neu um eine hinzuzufügen.
           </p>
         ) : (
-          <div className="bg-white rounded-3xl overflow-hidden">
+          <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
             {rules.map((rule, i) => (
               <div key={rule.id}
-                className={`flex items-center gap-4 px-5 py-4 ${!rule.active ? "opacity-50" : ""} ${i < rules.length - 1 ? "border-b border-gray-100" : ""}`}>
+                className={`flex items-center gap-4 px-5 py-4 ${!rule.active ? "opacity-50" : ""} ${i < rules.length - 1 ? "border-b border-rule/60" : ""}`}>
                 <span className="text-xl w-7 text-center flex-shrink-0">{rule.category.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{rule.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 tabular-nums">
-                    <span className={rule.category.type === "income" ? "text-green-500 font-semibold" : ""}>
+                  <p className="text-sm font-semibold text-ink truncate">{rule.name}</p>
+                  <p className="text-xs text-muted mt-0.5 tabular-nums">
+                    <span className={rule.category.type === "income" ? "text-pine font-semibold" : ""}>
                       {rule.category.type === "income" ? "+" : "−"}{formatCHF(rule.amount)}
                     </span>
                     {" · am "}{rule.dayOfMonth}.
                   </p>
                 </div>
                 <button onClick={() => toggleRule(rule.id, rule.active)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded-lg ${rule.active ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400"}`}>
+                  className={`text-[10px] font-bold px-2 py-1 rounded-lg ${rule.active ? "bg-pineSoft text-pine" : "bg-paper border border-rule text-faint"}`}>
                   {rule.active ? "AKTIV" : "PAUSE"}
                 </button>
-                <button onClick={() => deleteRule(rule.id)} className="text-gray-200 hover:text-red-400 p-1">
+                <button onClick={() => deleteRule(rule.id)} className="text-faint hover:text-blood p-1">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

@@ -75,42 +75,42 @@ function ReceiptCard({
   return (
     <div>
       <button
-        className="w-full flex items-center gap-4 px-5 py-4 active:bg-gray-50 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-4 active:bg-paper/60 transition-colors text-left"
         onClick={() => setOpen(o => !o)}>
         <div className="w-8 text-center text-xl leading-none flex-shrink-0">
           {icons.length === 1 ? icons[0] : "🛒"}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{group.merchant}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{formatDate(group.date)} · {group.items.length} Posten</p>
+          <p className="text-sm font-semibold text-ink truncate">{group.merchant}</p>
+          <p className="text-xs text-muted mt-0.5">{formatDate(group.date)} · {group.items.length} Posten</p>
         </div>
-        <p className="text-sm font-bold tabular-nums text-gray-900 flex-shrink-0">
+        <p className="amount text-[15px] text-ink flex-shrink-0">
           {isExpense ? "−" : ""}{formatCHF(group.total)}
         </p>
         {open
-          ? <ChevronUp className="w-4 h-4 text-gray-300 flex-shrink-0 ml-1" />
-          : <ChevronDown className="w-4 h-4 text-gray-300 flex-shrink-0 ml-1" />}
+          ? <ChevronUp className="w-4 h-4 text-faint flex-shrink-0 ml-1" />
+          : <ChevronDown className="w-4 h-4 text-faint flex-shrink-0 ml-1" />}
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 bg-gray-50/50">
+        <div className="border-t border-rule/60 bg-paper/50">
           {group.items.map((tx, i) => (
             <div key={tx.id}
-              className={`flex items-center gap-3 px-5 py-3 pl-14 ${i < group.items.length - 1 ? "border-b border-gray-100" : ""}`}>
+              className={`flex items-center gap-3 px-5 py-3 pl-14 ${i < group.items.length - 1 ? "border-b border-rule/40" : ""}`}>
               <span className="text-base w-6 text-center flex-shrink-0">{tx.category.icon}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-gray-800 truncate">{tx.description || tx.category.name}</p>
-                <p className="text-xs text-gray-400">{tx.category.name} · {getContributorLabel(tx.contributor, tx.user.name)}</p>
+                <p className="text-xs font-semibold text-inkSoft truncate">{tx.description || tx.category.name}</p>
+                <p className="text-xs text-muted">{tx.category.name} · {getContributorLabel(tx.contributor, tx.user.name)}</p>
               </div>
-              <p className="text-xs font-bold tabular-nums text-gray-700 flex-shrink-0">
+              <p className="amount text-[13px] text-inkSoft flex-shrink-0">
                 {tx.category.type === "income" ? "+" : "−"}{formatCHF(tx.amount)}
               </p>
               {onDelete && (
                 <div className="flex gap-1 ml-1">
-                  <Link href={`/transactions/${tx.id}/edit`} className="text-gray-300 hover:text-blue-400 p-1">
+                  <Link href={`/transactions/${tx.id}/edit`} className="text-faint hover:text-pine p-1">
                     <Pencil className="w-3.5 h-3.5" />
                   </Link>
-                  <button onClick={() => onDelete(tx.id)} className="text-gray-200 hover:text-red-400 p-1">
+                  <button onClick={() => onDelete(tx.id)} className="text-faint hover:text-blood p-1">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -118,7 +118,7 @@ function ReceiptCard({
             </div>
           ))}
           {group.items[0]?.note && (
-            <p className="px-5 pb-3 text-xs text-gray-400 italic">📝 {group.items[0].note}</p>
+            <p className="px-5 pb-3 text-xs text-muted italic">📝 {group.items[0].note}</p>
           )}
         </div>
       )}
@@ -140,46 +140,46 @@ export function TransactionList({
   if (rows.length === 0) return null
 
   return (
-    <div className="bg-white rounded-3xl overflow-hidden">
+    <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
       {rows.map((row, i) => {
         const isLast = i === rows.length - 1
         if (row.kind === "group") {
           return (
-            <div key={row.group.receiptId} className={!isLast ? "border-b border-gray-100" : ""}>
+            <div key={row.group.receiptId} className={!isLast ? "border-b border-rule/60" : ""}>
               <ReceiptCard group={row.group} onDelete={onDelete} onLightbox={onLightbox} />
             </div>
           )
         }
         const t = row.tx
         return (
-          <div key={t.id} className={!isLast ? "border-b border-gray-100" : ""}>
-            <div className="flex items-center gap-4 px-5 py-4">
+          <div key={t.id} className={!isLast ? "border-b border-rule/60" : ""}>
+            <div className="flex items-center gap-3 px-4 py-4">
               <span className="text-2xl w-8 text-center flex-shrink-0">{t.category.icon}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
+                <p className="text-sm font-semibold text-ink truncate">
                   {t.description || t.category.name}
-                  {t.recurringId && <span className="text-gray-300 ml-1 font-normal">↻</span>}
+                  {t.recurringId && <span className="text-faint ml-1 font-normal">↻</span>}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-muted mt-0.5 truncate">
                   {formatDate(t.date)} · {getContributorLabel(t.contributor, t.user.name)}
                   {t.account && <span style={{ color: t.account.color }}> · {t.account.icon} {t.account.name}</span>}
                 </p>
-                {t.note && <p className="text-xs text-gray-400 italic mt-0.5 truncate">📝 {t.note}</p>}
+                {t.note && <p className="text-xs text-muted italic mt-0.5 truncate">📝 {t.note}</p>}
               </div>
-              <p className={`text-sm font-bold tabular-nums flex-shrink-0 ${t.category.type === "income" ? "text-green-500" : "text-gray-900"}`}>
+              <p className={`amount text-[15px] flex-shrink-0 ${t.category.type === "income" ? "text-pine" : "text-ink"}`}>
                 {t.category.type === "income" ? "+" : "−"}{formatCHF(t.amount)}
               </p>
               {onLightbox && t.photoPath && (
-                <button onClick={() => onLightbox(t.photoPath!)} className="text-gray-300 hover:text-blue-400 p-1">
+                <button onClick={() => onLightbox(t.photoPath!)} className="text-faint hover:text-pine p-0.5">
                   <Image className="w-4 h-4" />
                 </button>
               )}
               {onDelete && (
                 <>
-                  <Link href={`/transactions/${t.id}/edit`} className="text-gray-300 hover:text-blue-400 p-1">
+                  <Link href={`/transactions/${t.id}/edit`} className="text-faint hover:text-pine p-0.5">
                     <Pencil className="w-4 h-4" />
                   </Link>
-                  <button onClick={() => onDelete(t.id)} className="text-gray-200 hover:text-red-400 p-1">
+                  <button onClick={() => onDelete(t.id)} className="text-faint hover:text-blood p-0.5">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </>

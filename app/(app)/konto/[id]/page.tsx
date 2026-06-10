@@ -66,38 +66,38 @@ export default function KontoPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="bg-black px-6 pt-safe pb-8">
+      <div className="ink-panel px-6 pt-safe pb-8 rounded-b-[32px]">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+          <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           {account && (
             <div className="flex items-center gap-2">
               <span className="text-xl">{account.icon}</span>
-              <p className="text-white font-bold">{account.name}</p>
+              <p className="display text-cream text-lg">{account.name}</p>
             </div>
           )}
         </div>
 
         <div className="flex items-center justify-between mb-6">
-          <button onClick={prevPeriod} className="text-zinc-400 hover:text-white transition-colors">
+          <button onClick={prevPeriod} className="text-cream/50 hover:text-cream transition-colors">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <p className="text-zinc-400 text-sm font-semibold">{periodLabel}</p>
-          <button onClick={nextPeriod} className="text-zinc-400 hover:text-white transition-colors">
+          <p className="kicker text-cream/45">{periodLabel}</p>
+          <button onClick={nextPeriod} className="text-cream/50 hover:text-cream transition-colors">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-white text-4xl font-black tracking-tight tabular-nums">−{formatCHF(total)}</p>
-        <p className="text-zinc-600 text-sm mt-1">Ausgaben</p>
+        <p className="amount text-cream text-[44px] leading-none">−{formatCHF(total)}</p>
+        <p className="kicker text-cream/35 mt-2">Ausgaben</p>
 
         {Object.keys(byUser).length > 1 && (
           <div className="flex gap-4 mt-6">
             {Object.values(byUser).map(u => (
               <div key={u.name}>
-                <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-1">{u.name}</p>
-                <p className="text-sm font-bold tabular-nums" style={{ color: u.color }}>−{formatCHF(u.total)}</p>
+                <p className="kicker text-cream/40 mb-1">{u.name}</p>
+                <p className="amount text-[15px]" style={{ color: u.color }}>−{formatCHF(u.total)}</p>
               </div>
             ))}
           </div>
@@ -108,21 +108,21 @@ export default function KontoPage() {
         {loading ? (
           <SkeletonList count={6} />
         ) : transactions.length === 0 ? (
-          <p className="text-zinc-500 text-sm text-center py-12">Keine Buchungen in dieser Periode</p>
+          <p className="text-muted text-sm text-center py-12">Keine Buchungen in dieser Periode</p>
         ) : (
-          <div className="bg-white rounded-3xl overflow-hidden">
+          <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
             {transactions.map((t, i) => (
-              <div key={t.id} className={`flex items-center gap-4 px-5 py-4 ${i < transactions.length - 1 ? "border-b border-gray-100" : ""}`}>
+              <div key={t.id} className={`flex items-center gap-4 px-5 py-4 ${i < transactions.length - 1 ? "border-b border-rule/60" : ""}`}>
                 <span className="text-2xl w-8 text-center">{t.category.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{t.description || t.category.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-sm font-semibold text-ink truncate">{t.description || t.category.name}</p>
+                  <p className="text-xs text-muted mt-0.5">
                     {formatDate(t.date)}
                     <span className="mx-1">·</span>
                     <span style={{ color: t.user.color }} className="font-semibold">{t.user.name}</span>
                   </p>
                 </div>
-                <p className={`text-sm font-bold tabular-nums ${t.category.type === "income" ? "text-green-500" : "text-gray-900"}`}>
+                <p className={`amount text-[15px] ${t.category.type === "income" ? "text-pine" : "text-ink"}`}>
                   {t.category.type === "income" ? "+" : "−"}{formatCHF(t.amount)}
                 </p>
               </div>

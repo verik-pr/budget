@@ -108,26 +108,28 @@ export default function NewTransactionPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto min-h-screen bg-black">
-      <div className="px-6 pt-safe pb-6">
-        <div className="flex items-center gap-3 mb-6">
-          <button type="button" onClick={() => router.back()} className="text-zinc-500 hover:text-white transition-colors">
+    <div className="max-w-lg mx-auto">
+      <div className="ink-panel px-6 pt-safe pb-4 rounded-b-[28px]">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Neue Buchung</p>
+          <p className="kicker text-cream/45">Neue Buchung</p>
         </div>
+      </div>
+      <div className="stagger px-6 pt-5 pb-6">
 
         {/* Scan shortcut */}
         <Link href="/scan"
-          className="flex items-center gap-3 bg-zinc-900 rounded-2xl px-4 py-3 mb-8 active:bg-zinc-800 transition-colors">
-          <div className="w-9 h-9 bg-green-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-            <ScanLine className="w-5 h-5 text-green-500" />
+          className="flex items-center gap-3 ink-panel rounded-2xl px-4 py-3 mb-6 active:opacity-90 transition-opacity">
+          <div className="w-9 h-9 bg-cream/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <ScanLine className="w-5 h-5 text-[#7fc89e]" />
           </div>
           <div className="flex-1">
-            <p className="text-white text-sm font-bold">Quittung scannen</p>
-            <p className="text-zinc-500 text-xs">KI erkennt Posten automatisch</p>
+            <p className="text-cream text-sm font-bold">Quittung scannen</p>
+            <p className="text-cream/45 text-xs">KI erkennt Posten automatisch</p>
           </div>
-          <span className="text-zinc-600 text-lg">›</span>
+          <span className="text-cream/35 text-lg">›</span>
         </Link>
 
         {/* Type toggle */}
@@ -139,10 +141,10 @@ export default function NewTransactionPage() {
                 const first = categories.find(c => c.type === t)
                 if (first) setCategoryId(first.id)
               }}
-              className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`px-5 py-2 rounded-full text-sm font-bold transition-all active:scale-[0.97] ${
                 type === t
-                  ? t === "expense" ? "bg-white text-black" : "bg-green-500 text-black"
-                  : "bg-zinc-900 text-zinc-500"
+                  ? t === "expense" ? "bg-ink text-cream" : "bg-pine text-cream"
+                  : "bg-card border border-rule text-muted"
               }`}>
               {t === "expense" ? "Ausgabe" : "Einnahme"}
             </button>
@@ -151,37 +153,37 @@ export default function NewTransactionPage() {
 
         {/* Amount */}
         <div className="mb-8">
-          <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Betrag CHF</p>
+          <p className="kicker text-muted mb-2">Betrag CHF</p>
           <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" required value={amount}
             onChange={e => setAmount(e.target.value)} placeholder="0.00"
-            className="w-full bg-transparent text-white text-5xl font-black focus:outline-none placeholder-zinc-800 tabular-nums" />
-          <div className="h-px bg-zinc-800 mt-3" />
+            className="amount w-full bg-transparent text-ink text-[52px] leading-none focus:outline-none placeholder:text-rule" />
+          <div className="h-px bg-rule mt-3" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Details */}
           <div className="space-y-4">
             <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Datum</p>
+              <p className="kicker text-muted mb-2">Datum</p>
               <input type="date" required value={date} onChange={e => setDate(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zinc-600" />
+                className="w-full bg-card border border-rule rounded-2xl px-4 py-3 text-ink text-sm focus:outline-none focus:border-pine/50" />
             </div>
             <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-2">Beschreibung</p>
+              <p className="kicker text-muted mb-2">Beschreibung</p>
               <input type="text" value={description} onChange={e => setDescription(e.target.value)}
                 placeholder="z.B. Migros Einkauf"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-zinc-600 placeholder-zinc-700" />
+                className="w-full bg-card border border-rule rounded-2xl px-4 py-3 text-ink text-sm focus:outline-none focus:border-pine/50 placeholder:text-faint" />
             </div>
           </div>
 
           {/* Categories */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest">Kategorie</p>
+              <p className="kicker text-muted">Kategorie</p>
               {showSuggestion && (
                 <button type="button"
                   onClick={() => { setCategoryId(suggestion!.categoryId); setUserPickedCategory(true); setSuggestion(null) }}
-                  className="flex items-center gap-1.5 bg-green-500/15 text-green-400 rounded-full px-3 py-1 text-xs font-bold active:opacity-70">
+                  className="flex items-center gap-1.5 bg-pineSoft text-pine rounded-full px-3 py-1 text-xs font-bold active:opacity-70 ring-1 ring-pine/30">
                   <Sparkles className="w-3 h-3" />
                   <span>{suggestedCat!.icon} {suggestedCat!.name}</span>
                 </button>
@@ -190,11 +192,11 @@ export default function NewTransactionPage() {
             <div className="grid grid-cols-4 gap-2">
               {filtered.map(cat => (
                 <button key={cat.id} type="button" onClick={() => { setCategoryId(cat.id); setUserPickedCategory(true) }}
-                  className={`rounded-2xl py-3 px-2 text-center transition-all ${
-                    categoryId === cat.id ? "bg-white" : "bg-zinc-900"
+                  className={`rounded-2xl py-3 px-2 text-center transition-all active:scale-[0.97] ${
+                    categoryId === cat.id ? "bg-ink shadow-card" : "bg-card border border-rule"
                   }`}>
                   <div className="text-xl mb-1">{cat.icon}</div>
-                  <div className={`text-[10px] font-semibold leading-tight ${categoryId === cat.id ? "text-black" : "text-zinc-500"}`}>
+                  <div className={`text-[10px] font-semibold leading-tight ${categoryId === cat.id ? "text-cream" : "text-muted"}`}>
                     {cat.name}
                   </div>
                 </button>
@@ -205,58 +207,58 @@ export default function NewTransactionPage() {
           {/* Konto */}
           {accounts.length > 0 && (
             <div>
-              <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Konto</p>
+              <p className="kicker text-muted mb-3">Konto</p>
               <div className="flex gap-2 flex-wrap">
                 {accounts.map(acc => (
                   <button key={acc.id} type="button"
                     onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
                     style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
-                      accountId === acc.id ? "text-white" : "bg-zinc-900 text-zinc-400"
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97] ${
+                      accountId === acc.id ? "text-cream shadow-md" : "bg-card border border-rule text-muted"
                     }`}>
                     <span>{acc.icon}</span>
                     <span>{acc.name}</span>
                   </button>
                 ))}
               </div>
-              <p className="text-zinc-700 text-xs mt-2">Leer lassen = kein Konto</p>
+              <p className="text-faint text-xs mt-2 italic font-serif">Leer lassen = kein Konto</p>
             </div>
           )}
 
           {/* Von wem */}
           <div>
-            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Von wem</p>
+            <p className="kicker text-muted mb-3">Von wem</p>
             <div className="grid grid-cols-2 gap-2">
               {CONTRIBUTORS.map(c => (
                 <button key={c.value} type="button"
                   onClick={() => setContributor(contributor === c.value ? "" : c.value)}
                   style={contributor === c.value ? { backgroundColor: c.color } : {}}
-                  className={`rounded-2xl py-3 px-3 text-sm font-bold transition-all text-left ${
-                    contributor === c.value ? "text-white" : "bg-zinc-900 text-zinc-400"
+                  className={`rounded-2xl py-3 px-3 text-sm font-bold transition-all text-left active:scale-[0.97] ${
+                    contributor === c.value ? "text-cream shadow-md" : "bg-card border border-rule text-muted"
                   }`}>
                   {c.label}
                 </button>
               ))}
             </div>
-            <p className="text-zinc-700 text-xs mt-2">Leer lassen = du selbst</p>
+            <p className="text-faint text-xs mt-2 italic font-serif">Leer lassen = du selbst</p>
           </div>
 
           {/* Photo */}
           <div>
-            <p className="text-zinc-600 text-xs font-semibold uppercase tracking-widest mb-3">Quittung</p>
+            <p className="kicker text-muted mb-3">Quittung</p>
             <input ref={fileRef} type="file" accept="image/*" capture="environment"
               onChange={handlePhoto} className="hidden" />
             {photoPreview ? (
               <div className="relative rounded-2xl overflow-hidden">
                 <img src={photoPreview} className="w-full h-40 object-cover" alt="Vorschau" />
                 <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
-                  className="absolute top-3 right-3 bg-black/60 rounded-full p-1.5">
-                  <X className="w-4 h-4 text-white" />
+                  className="absolute top-3 right-3 bg-ink/70 rounded-full p-1.5">
+                  <X className="w-4 h-4 text-cream" />
                 </button>
               </div>
             ) : (
               <button type="button" onClick={() => fileRef.current?.click()}
-                className="w-full bg-zinc-900 border border-zinc-800 border-dashed rounded-2xl py-5 flex flex-col items-center gap-2 text-zinc-600 hover:border-zinc-600 transition-colors">
+                className="w-full bg-card border border-rule border-dashed rounded-2xl py-5 flex flex-col items-center gap-2 text-muted hover:border-pine/40 transition-colors">
                 <Camera className="w-5 h-5" />
                 <span className="text-xs font-medium">Foto hinzufügen</span>
               </button>
@@ -264,7 +266,7 @@ export default function NewTransactionPage() {
           </div>
 
           <button type="submit" disabled={loading || !amount || !categoryId}
-            className="w-full bg-green-500 hover:bg-green-400 text-black rounded-2xl py-4 font-black text-sm disabled:opacity-30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+            className="w-full bg-pine hover:bg-pineDark text-cream rounded-2xl py-4 font-bold text-sm disabled:opacity-30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
             <Check className="w-4 h-4" />
             {loading ? "Speichern…" : "Buchung speichern"}
           </button>

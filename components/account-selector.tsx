@@ -14,8 +14,8 @@ export function AccountSelector({ accounts, selected }: { accounts: Account[]; s
           key={acc.id}
           onClick={() => router.push(`/dashboard?konto=${acc.id}`)}
           style={selected === acc.id ? { backgroundColor: acc.color } : {}}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            selected === acc.id ? "text-white" : "bg-zinc-800 text-zinc-400"
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-[0.97] ${
+            selected === acc.id ? "text-cream shadow-md" : "bg-cream/10 text-cream/55 border border-cream/15"
           }`}>
           <span>{acc.icon}</span>
           <span>{acc.name}</span>
