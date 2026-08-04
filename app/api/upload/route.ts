@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { writeFile, mkdir } from "fs/promises"
 import { join } from "path"
-import { v4 as uuidv4 } from "uuid"
+import { randomUUID } from "crypto"
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/data/uploads"
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const allowed = ["jpg", "jpeg", "png", "webp", "heic"]
   if (!allowed.includes(ext)) return NextResponse.json({ error: "Invalid file type" }, { status: 400 })
 
-  const filename = `${uuidv4()}.${ext}`
+  const filename = `${randomUUID()}.${ext}`
   await mkdir(UPLOAD_DIR, { recursive: true })
   await writeFile(join(UPLOAD_DIR, filename), buffer)
 
