@@ -4,7 +4,8 @@ import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Camera, Check, Loader2, ScanLine, X, FileText, Receipt } from "lucide-react"
-import { CONTRIBUTORS } from "@/lib/utils"
+import { CONTRIBUTORS, formatCHF } from "@/lib/utils"
+import { useConfirm } from "@/components/confirm-sheet"
 
 type ScannedItem = {
   name: string
@@ -32,6 +33,7 @@ type Category = { id: string; name: string; icon: string; type: string }
 export default function ScanPage() {
   const router = useRouter()
   const { data: session } = useSession()
+  const confirm = useConfirm()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [phase, setPhase] = useState<"capture" | "scanning" | "review">("capture")
@@ -41,15 +43,22 @@ export default function ScanPage() {
   const [accountId, setAccountId] = useState("")
   const [accounts, setAccounts] = useState<{ id: string; name: string; icon: string; color: string }[]>([])
   const [note, setNote] = useState("")
+  const [date, setDate] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [saveError, setSaveError] = useState("")
+  const [savedCount, setSavedCount] = useState(0)
+  const [lastSaved, setLastSaved] = useState<{ merchant: string; total: number } | null>(null)
 
   const firstName = session?.user?.name?.split(" ")[0]?.toLowerCase() ?? ""
   const myContrib = CONTRIBUTORS.find(c => c.label.toLowerCase().startsWith(firstName)) ?? CONTRIBUTORS[0]
+
+  // Wer hat diese Quittung bezahlt? Bleibt zwischen Scans erhalten (Stapel-Erfassung)
+  const [paidBy, setPaidBy] = useState(myContrib.value === "celine" ? "celine" : "erik")
+  const payer = CONTRIBUTORS.find(c => c.value === paidBy) ?? CONTRIBUTORS[0]
   const partner = CONTRIBUTORS.find(c =>
-    (myContrib.value === "erik" && c.value === "celine") ||
-    (myContrib.value === "celine" && c.value === "erik")
+    (payer.value === "erik" && c.value === "celine") ||
+    (payer.value === "celine" && c.value === "erik")
   ) ?? CONTRIBUTORS[1]
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -83,6 +92,8 @@ export default function ScanPage() {
       const data: ScanResult = await scanRes.json()
       setResult(data)
       setItems(data.items.map(item => ({ ...item, excluded: false, contributor: "", sharedWith: null, sharedRatio: null })))
+      setDate(/^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "") ? data.date : new Date().toISOString().split("T")[0])
+      setLastSaved(null)
       setPhase("review")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Scannen")
@@ -98,7 +109,7 @@ export default function ScanPage() {
   function setSplit(i: number, mode: "solo" | "half" | "full") {
     setItems(prev => prev.map((item, j) => j !== i ? item : {
       ...item,
-      contributor: mode === "solo" ? "" : myContrib.value,
+      contributor: mode === "solo" ? "" : payer.value,
       sharedWith: mode === "solo" ? null : partner.value,
       sharedRatio: mode === "solo" ? null : mode === "half" ? 0.5 : 1.0,
     }))
@@ -109,42 +120,67 @@ export default function ScanPage() {
     return item.sharedRatio === 0.5 ? "half" : "full"
   }
 
-  async function handleSave() {
+  async function handleSave(force = false) {
     const toSave = items.filter(i => !i.excluded)
     if (toSave.length === 0) return
     setSaving(true)
     setSaveError("")
-
-    const receiptId = crypto.randomUUID()
 
     try {
       const response = await fetch("/api/scan-receipt/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          date: result?.date ?? new Date().toISOString().split("T")[0],
+          date: date || new Date().toISOString().split("T")[0],
           accountId: accountId || null,
           note: note || null,
-          receiptId,
+          force,
           receiptMerchant: result?.merchant ?? null,
           items: toSave.map(item => ({
             amount: item.amount,
             categoryId: item.categoryId,
             description: item.name,
-            contributor: item.contributor || null,
-            ...(item.sharedWith ? { sharedWith: item.sharedWith, sharedRatio: item.sharedRatio } : {}),
+            contributor: payer.value,
+            ...(item.sharedWith ? { sharedWith: partner.value, sharedRatio: item.sharedRatio } : {}),
           })),
         }),
       })
+      if (response.status === 409) {
+        const dup = await response.json().catch(() => ({}))
+        setSaving(false)
+        const ok = await confirm({
+          title: "Schon erfasst?",
+          description: `${dup.merchant ?? "Ein Beleg"} vom ${formatDateCH(date)} über ${formatCHF(dup.total ?? 0)} existiert bereits. Trotzdem speichern?`,
+          confirmLabel: "Trotzdem speichern",
+        })
+        if (ok) await handleSave(true)
+        return
+      }
       if (!response.ok) {
         const err = await response.json().catch(() => ({}))
         throw new Error(err.error || `HTTP ${response.status}`)
       }
-      router.push("/dashboard")
+      // Erfolg: zurück zum Scannen für die nächste Quittung (Stapel-Erfassung)
+      const total = toSave.reduce((s, i) => s + i.amount, 0)
+      setLastSaved({ merchant: result?.merchant ?? "Beleg", total })
+      setSavedCount(c => c + 1)
+      setResult(null)
+      setItems([])
+      setNote("")
+      setDate("")
+      setSaving(false)
+      setPhase("capture")
+      window.scrollTo(0, 0)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Fehler beim Speichern")
       setSaving(false)
     }
+  }
+
+  function formatDateCH(d: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
+    const [y, m, day] = d.split("-")
+    return `${parseInt(day)}.${parseInt(m)}.${y}`
   }
 
   const activeItems = items.filter(i => !i.excluded)
@@ -177,12 +213,23 @@ export default function ScanPage() {
         </div>
 
         {phase === "capture" && (
-          <div className="flex flex-col items-center justify-center py-20 gap-6">
+          <div className={`flex flex-col items-center justify-center gap-6 ${lastSaved ? "py-10" : "py-20"}`}>
+            {lastSaved && (
+              <div className="w-full bg-[#7fc89e]/10 border border-[#7fc89e]/30 rounded-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#7fc89e] flex items-center justify-center flex-shrink-0">
+                  <Check className="w-4 h-4 text-ink" strokeWidth={3} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-cream text-sm font-bold truncate">{lastSaved.merchant} · {formatCHF(lastSaved.total)}</p>
+                  <p className="text-cream/50 text-xs">{savedCount}. Quittung in dieser Sitzung erfasst</p>
+                </div>
+              </div>
+            )}
             <div className="w-20 h-20 bg-cream/[0.07] border border-cream/15 rounded-3xl flex items-center justify-center">
               <ScanLine className="w-10 h-10 text-[#7fc89e]" />
             </div>
             <div className="text-center">
-              <p className="display text-cream text-2xl">Dokument scannen</p>
+              <p className="display text-cream text-2xl">{lastSaved ? "Nächste Quittung" : "Dokument scannen"}</p>
               <p className="text-cream/45 text-sm mt-1">Quittungen, Rechnungen, Belege</p>
             </div>
             {error && <p className="text-[#e89890] text-sm text-center bg-blood/15 rounded-xl px-4 py-3">{error}</p>}
@@ -191,6 +238,12 @@ export default function ScanPage() {
               <Camera className="w-5 h-5" />Foto aufnehmen
             </button>
             <button onClick={triggerGallery} className="text-cream/50 text-sm font-semibold">Aus Galerie wählen</button>
+            {lastSaved && (
+              <button onClick={() => router.push("/dashboard")}
+                className="text-[#7fc89e] text-sm font-bold border border-[#7fc89e]/30 rounded-2xl px-6 py-3 active:scale-95 transition-all">
+                Fertig — zum Dashboard
+              </button>
+            )}
           </div>
         )}
 
@@ -215,6 +268,27 @@ export default function ScanPage() {
                 </div>
               </div>
             )}
+
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <p className="kicker text-cream/40 mb-3">Bezahlt von</p>
+                <div className="flex gap-2">
+                  {CONTRIBUTORS.filter(c => c.value === "erik" || c.value === "celine").map(c => (
+                    <button key={c.value} type="button"
+                      onClick={() => setPaidBy(c.value)}
+                      style={paidBy === c.value ? { backgroundColor: c.color } : {}}
+                      className={`flex-1 px-3 py-2.5 rounded-2xl text-sm font-bold transition-all ${paidBy === c.value ? "text-cream shadow-md" : "bg-cream/10 text-cream/55 border border-cream/15"}`}>
+                      {c.label.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="kicker text-cream/40 mb-3">Datum</p>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                  className="bg-cream/10 border border-cream/15 rounded-2xl px-3 py-2.5 text-sm font-bold text-cream focus:outline-none focus:border-cream/40 [color-scheme:dark]" />
+              </div>
+            </div>
 
             {accounts.length > 1 && (
               <div>
@@ -255,9 +329,9 @@ export default function ScanPage() {
                           </select>
                           <div className="bg-cream/[0.04] border-t border-cream/10 px-4 py-2.5 flex gap-2">
                             {([
-                              { mode: "solo" as const, label: "Nur ich" },
+                              { mode: "solo" as const, label: `Nur ${payer.label.split(" ")[0]}` },
                               { mode: "half" as const, label: "50/50" },
-                              { mode: "full" as const, label: `Nur ${partner.label.split(" ")[0]}` },
+                              { mode: "full" as const, label: `Für ${partner.label.split(" ")[0]}` },
                             ]).map(opt => (
                               <button key={opt.mode} type="button"
                                 onClick={e => { e.stopPropagation(); setSplit(i, opt.mode) }}
@@ -300,7 +374,7 @@ export default function ScanPage() {
               <p className="amount text-cream text-lg">CHF {activeTotal.toFixed(2)}</p>
               <p className="text-cream/45 text-xs">{activeItems.length} Posten ausgewählt</p>
             </div>
-            <button onClick={handleSave} disabled={saving || activeItems.length === 0}
+            <button onClick={() => handleSave()} disabled={saving || activeItems.length === 0}
               className="bg-cream text-ink font-black px-6 py-3 rounded-2xl flex items-center gap-2 disabled:opacity-30 active:scale-95 transition-all">
               <Check className="w-4 h-4" strokeWidth={3} />
               {saving ? "Speichern…" : "Speichern"}

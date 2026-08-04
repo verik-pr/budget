@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { formatCHF } from "@/lib/utils"
+import { CONTRIBUTORS, expenseShares, formatCHF } from "@/lib/utils"
 import { AccountSelector } from "@/components/account-selector"
 import { TransactionList } from "@/components/transaction-list"
 import { ForecastCard } from "@/components/forecast-card"
@@ -39,7 +39,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     ? { OR: [{ accountId: selectedId }, { accountId: null }] }
     : { accountId: selectedId }
 
-  const [transactions, lastMonth] = await Promise.all([
+  const [transactions, lastMonth, allPeriodExpenses] = await Promise.all([
     prisma.transaction.findMany({
       where: { date: { gte: start, lt: end }, ...accountFilter },
       include: { category: true, user: { select: { id: true, name: true, color: true } }, account: { select: { id: true, name: true, icon: true, color: true } } },
@@ -49,6 +49,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       where: { date: { gte: lastStart, lt: start }, ...accountFilter },
       include: { category: true },
     }),
+    // Personen-Split: alle Ausgaben der Periode, unabhängig vom gewählten Konto
+    prisma.transaction.findMany({
+      where: { date: { gte: start, lt: end }, category: { type: "expense" } },
+      include: { user: { select: { name: true } } },
+    }),
   ])
 
   const income = transactions.filter(t => t.category.type === "income").reduce((s, t) => s + t.amount, 0)
@@ -57,6 +62,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const lastExpenses = lastMonth.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
   const expenseDiff = lastExpenses !== 0 ? Math.round(((expenses - lastExpenses) / Math.abs(lastExpenses)) * 100) : null
+
+  // Wer hat was ausgegeben (effektiv, Splits anteilig verteilt)
+  const personTotals = new Map<string, number>()
+  for (const t of allPeriodExpenses) {
+    for (const [person, amount] of expenseShares(t, "effektiv")) {
+      personTotals.set(person, (personTotals.get(person) ?? 0) + amount)
+    }
+  }
+  const personSplit = CONTRIBUTORS
+    .filter(c => (personTotals.get(c.value) ?? 0) > 0.005)
+    .map(c => ({ label: c.label.split(" ")[0], color: c.color, total: personTotals.get(c.value)! }))
+  const personGrand = personSplit.reduce((s, p) => s + p.total, 0)
 
   const endLabel = new Date(end.getTime() - 86400000)
   const monthLabel = `${start.getDate()}. ${start.toLocaleDateString("de-CH", { month: "short" })} – ${endLabel.getDate()}. ${endLabel.toLocaleDateString("de-CH", { month: "short", year: "numeric" })}`
@@ -93,6 +110,37 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
 
       <div className="stagger">
+        {/* Wer hat was ausgegeben */}
+        {personSplit.length > 0 && (
+          <div className="px-6 pt-6">
+            <Link href="/stats?tab=personen"
+              className="block bg-card border border-rule shadow-card rounded-3xl px-5 py-4 active:scale-[0.99] transition-transform">
+              <div className="flex items-baseline justify-between mb-3">
+                <p className="kicker text-muted">Wer hat was ausgegeben</p>
+                <p className="text-xs font-bold text-pine">Details</p>
+              </div>
+              <div className="flex h-2.5 rounded-full overflow-hidden gap-[2px] mb-3">
+                {personSplit.map(p => (
+                  <div key={p.label} className="h-full rounded-full"
+                    style={{ width: `${personGrand > 0 ? (p.total / personGrand) * 100 : 0}%`, backgroundColor: p.color }} />
+                ))}
+              </div>
+              <div className="flex gap-5">
+                {personSplit.map(p => (
+                  <div key={p.label} className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-cream text-[9px] font-black flex-shrink-0"
+                      style={{ backgroundColor: p.color }}>{p.label[0]}</div>
+                    <div>
+                      <p className="amount text-[14px] text-ink leading-none">{formatCHF(p.total)}</p>
+                      <p className="text-[10px] text-muted mt-0.5">{p.label} · {personGrand > 0 ? Math.round((p.total / personGrand) * 100) : 0}%</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Link>
+          </div>
+        )}
+
         <div className="px-6 pt-6">
           <ForecastCard accountId={selectedId ?? null} />
         </div>

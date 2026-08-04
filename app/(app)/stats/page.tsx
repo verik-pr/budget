@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/confirm-sheet"
 import { Skeleton, SkeletonList } from "@/components/skeleton"
 import { useToast } from "@/components/toast"
 import { PullToRefresh } from "@/components/pull-to-refresh"
+import { PersonStats } from "@/components/person-stats"
 
 type Transaction = {
   amount: number
@@ -125,8 +126,14 @@ export default function StatsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [tab, setTab] = useState<"expense" | "income" | "planung" | "gemeinsam">("expense")
+  const [tab, setTab] = useState<"expense" | "income" | "personen" | "planung" | "gemeinsam">("expense")
   const [loading, setLoading] = useState(true)
+
+  // ?tab=personen etc. als Start-Tab (z.B. vom Dashboard-Modul verlinkt)
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab")
+    if (wanted === "personen" || wanted === "income" || wanted === "planung" || wanted === "gemeinsam") setTab(wanted)
+  }, [])
 
   // Gemeinsame Auslagen (kumulierte Abrechnung)
   const [debtData, setDebtData] = useState<DebtData | null>(null)
@@ -340,10 +347,10 @@ export default function StatsPage() {
           </div>
         )}
         <div className="flex flex-wrap gap-2">
-          {(["expense", "income", "planung", "gemeinsam"] as const).map(t => (
+          {(["expense", "income", "personen", "planung", "gemeinsam"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-2 rounded-full text-sm font-bold transition-all active:scale-[0.97] ${tab === t ? "bg-cream text-ink" : "bg-cream/10 text-cream/55 border border-cream/15"}`}>
-              {t === "expense" ? "Ausgaben" : t === "income" ? "Einnahmen" : t === "planung" ? "Planung" : "Gemeinsam"}
+              {t === "expense" ? "Ausgaben" : t === "income" ? "Einnahmen" : t === "personen" ? "Personen" : t === "planung" ? "Planung" : "Gemeinsam"}
             </button>
           ))}
         </div>
@@ -406,6 +413,9 @@ export default function StatsPage() {
             </div>
           </>
         )}
+
+        {/* ── Personen tab ── */}
+        {tab === "personen" && <PersonStats />}
 
         {/* ── Planung tab ── */}
         {tab === "planung" && (

@@ -47,6 +47,39 @@ export async function POST(req: Request) {
   if (accountId && !account) return NextResponse.json({ error: "Konto nicht gefunden" }, { status: 400 })
 
   const categoriesById = new Map(categories.map(category => [category.id, category]))
+
+  // Duplikat-Check: gleicher Tag + gleicher Händler + gleiche Summe → 409,
+  // ausser der Client bestätigt mit force:true (z.B. beim Stapel-Erfassen alter Belege)
+  if (body.force !== true) {
+    const incomingTotal = items.reduce((s, item) => s + (asPositiveNumber(item.amount) ?? 0), 0)
+    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart.getTime() + 86400000)
+    const sameDay = await prisma.transaction.findMany({
+      where: { date: { gte: dayStart, lt: dayEnd }, receiptId: { not: null } },
+      select: { receiptId: true, receiptMerchant: true, amount: true },
+    })
+    const groups = new Map<string, { merchant: string | null; total: number }>()
+    for (const t of sameDay) {
+      const g = groups.get(t.receiptId!) ?? { merchant: t.receiptMerchant, total: 0 }
+      g.total += t.amount
+      groups.set(t.receiptId!, g)
+    }
+    const wanted = receiptMerchant?.trim().toLowerCase() ?? null
+    const duplicate = [...groups.values()].find(g => {
+      const sameTotal = Math.abs(g.total - incomingTotal) < 0.005
+      const sameMerchant = wanted === null || g.merchant?.trim().toLowerCase() === wanted
+      return sameTotal && sameMerchant
+    })
+    if (duplicate) {
+      return NextResponse.json({
+        error: "Möglicherweise bereits erfasst",
+        duplicate: true,
+        merchant: duplicate.merchant,
+        total: duplicate.total,
+      }, { status: 409 })
+    }
+  }
+
   const receiptId = crypto.randomUUID()
   const prepared = items.map(item => {
     const amount = asPositiveNumber(item.amount)
