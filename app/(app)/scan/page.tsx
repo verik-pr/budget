@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Camera, Check, Loader2, ScanLine, X, FileText, Receipt } from "lucide-react"
-import { CONTRIBUTORS, formatCHF } from "@/lib/utils"
+import { CONTRIBUTORS, formatCHF, todayLocalISO } from "@/lib/utils"
 import { useConfirm } from "@/components/confirm-sheet"
 
 type ScannedItem = {
@@ -63,6 +63,9 @@ export default function ScanPage() {
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    // Input zurücksetzen, sonst feuert onChange nicht, wenn dieselbe Datei
+    // nochmal gewählt wird (z.B. nach einem Scan-Fehler)
+    e.target.value = ""
     if (!file) return
     setPhase("scanning")
     setError("")
@@ -80,7 +83,8 @@ export default function ScanPage() {
       const [cats, { accounts: accs, defaultId }] = await Promise.all([catRes.json(), accRes.json()])
       setCategories(cats)
       setAccounts(accs)
-      if (defaultId) setAccountId(defaultId)
+      // Konto-Wahl über den Scan-Loop hinweg behalten (Stapel-Erfassung)
+      if (defaultId) setAccountId(prev => prev || defaultId)
 
       if (!scanRes.ok) {
         const err = await scanRes.json().catch(() => ({}))
@@ -92,7 +96,7 @@ export default function ScanPage() {
       const data: ScanResult = await scanRes.json()
       setResult(data)
       setItems(data.items.map(item => ({ ...item, excluded: false, contributor: "", sharedWith: null, sharedRatio: null })))
-      setDate(/^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "") ? data.date : new Date().toISOString().split("T")[0])
+      setDate(/^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "") ? data.date : todayLocalISO())
       setLastSaved(null)
       setPhase("review")
     } catch (err) {
@@ -131,7 +135,7 @@ export default function ScanPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          date: date || new Date().toISOString().split("T")[0],
+          date: date || todayLocalISO(),
           accountId: accountId || null,
           note: note || null,
           force,
@@ -192,7 +196,13 @@ export default function ScanPage() {
       <div className="px-6 pt-safe pb-24">
 
         <div className="flex items-center gap-3 mb-8">
-          <button onClick={() => router.back()} className="text-cream/50 hover:text-cream transition-colors">
+          <button onClick={async () => {
+            if (phase === "review" && items.some(i => !i.excluded)) {
+              const ok = await confirm({ title: "Scan verwerfen?", description: "Die erkannten Posten gehen verloren.", confirmLabel: "Verwerfen", destructive: true })
+              if (!ok) return
+            }
+            router.back()
+          }} className="text-cream/50 hover:text-cream transition-colors">
             <X className="w-5 h-5" />
           </button>
           <div>

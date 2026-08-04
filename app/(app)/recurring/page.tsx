@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { formatCHF } from "@/lib/utils"
+import { formatCHF, parseAmount } from "@/lib/utils"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
@@ -125,11 +125,16 @@ export default function RecurringPage() {
   }, [])
 
   async function addRule(data: { name: string; amount: string; categoryId: string; dayOfMonth: string }) {
+    const parsed = parseAmount(data.amount)
+    if (!parsed) {
+      toast("Ungültiger Betrag", "error")
+      return
+    }
     try {
       const res = await fetch("/api/recurring", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, amount: parsed }),
       })
       if (!res.ok) throw new Error()
       const rule = await res.json()

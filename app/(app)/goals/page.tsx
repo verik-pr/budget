@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { formatCHF } from "@/lib/utils"
+import { formatCHF, parseAmount } from "@/lib/utils"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
@@ -98,8 +98,8 @@ export default function GoalsPage() {
   }
 
   async function addAmount(goal: Goal) {
-    const add = parseFloat(adding[goal.id] || "0")
-    if (!add || add <= 0) return
+    const add = parseAmount(adding[goal.id] || "")
+    if (!add) return
     try {
       const res = await fetch(`/api/savings-goals/${goal.id}`, {
         method: "PATCH",

@@ -38,9 +38,22 @@ export function isLoginRateLimited(email: string): boolean {
   return !!attempt && attempt.lockedUntil > now
 }
 
+const MAX_TRACKED_KEYS = 500
+
 export function recordFailedLogin(email: string) {
   const key = keyFor(email)
   const now = Date.now()
+
+  // Map begrenzen: abgelaufene Einträge räumen, sonst ältesten verdrängen
+  if (!attempts.has(key) && attempts.size >= MAX_TRACKED_KEYS) {
+    for (const [k, a] of attempts) {
+      if (now - a.firstFailureAt > WINDOW_MS && a.lockedUntil <= now) attempts.delete(k)
+    }
+    if (attempts.size >= MAX_TRACKED_KEYS) {
+      const oldest = attempts.keys().next().value
+      if (oldest !== undefined) attempts.delete(oldest)
+    }
+  }
   const attempt = currentAttempt(key, now) ?? {
     failures: 0,
     firstFailureAt: now,

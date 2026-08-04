@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CONTRIBUTORS, expenseShares, formatCHF, type PersonMode } from "@/lib/utils"
 import { Skeleton, SkeletonList } from "@/components/skeleton"
 import { useToast } from "@/components/toast"
@@ -51,9 +51,11 @@ export function PersonStats() {
   const [mode, setMode] = useState<PersonMode>("effektiv")
   const [transactions, setTransactions] = useState<Tx[]>([])
   const [loading, setLoading] = useState(true)
+  const fetchSeq = useRef(0)
 
   const fetchRange = useCallback(async () => {
     setLoading(true)
+    const seq = ++fetchSeq.current
     const curStart = currentPeriodStart()
     const end = new Date(curStart.getFullYear(), curStart.getMonth() + 1, 24)
     const start = months === 0
@@ -63,11 +65,14 @@ export function PersonStats() {
     try {
       const res = await fetch(`/api/transactions?${params}`)
       if (!res.ok) throw new Error()
-      setTransactions(await res.json())
+      const data = await res.json()
+      // Veraltete Antwort verwerfen (schneller Zeitraum-Wechsel)
+      if (seq !== fetchSeq.current) return
+      setTransactions(data)
     } catch {
-      toast("Konnte Personen-Statistik nicht laden", "error")
+      if (seq === fetchSeq.current) toast("Konnte Personen-Statistik nicht laden", "error")
     } finally {
-      setLoading(false)
+      if (seq === fetchSeq.current) setLoading(false)
     }
   }, [months, toast])
 
@@ -103,7 +108,23 @@ export function PersonStats() {
     return { persons, totals, grandTotal, byPeriod, byCategory }
   }, [expenses, mode])
 
-  const sortedPeriods = useMemo(() => [...byPeriod.keys()].sort(), [byPeriod])
+  // Lückenlos von der ersten bis zur letzten Periode — Monate ohne Buchungen
+  // erscheinen als Null-Balken statt zu fehlen
+  const sortedPeriods = useMemo(() => {
+    const keys = [...byPeriod.keys()].sort()
+    if (keys.length < 2) return keys
+    const out: string[] = []
+    let [y, m] = keys[0].split("-").map(Number)
+    const last = keys[keys.length - 1]
+    while (out.length < 400) {
+      const k = `${y}-${String(m).padStart(2, "0")}`
+      out.push(k)
+      if (k === last) break
+      m++
+      if (m > 12) { m = 1; y++ }
+    }
+    return out
+  }, [byPeriod])
   const maxPeriodValue = useMemo(() => {
     let max = 0
     for (const pm of byPeriod.values()) for (const v of pm.values()) max = Math.max(max, v)
@@ -116,10 +137,13 @@ export function PersonStats() {
   )
 
   const showTrend = sortedPeriods.length > 1
-  const trendLabels = sortedPeriods.map(key => {
+  const spansYears = sortedPeriods.length > 1 &&
+    sortedPeriods[0].slice(0, 4) !== sortedPeriods[sortedPeriods.length - 1].slice(0, 4)
+  const trendLabelFor = (key: string) => {
     const [y, m] = key.split("-").map(Number)
-    return new Date(y, m - 2, 24)
-  })
+    const base = periodLabel(new Date(y, m - 2, 24))
+    return spansYears ? `${base} ${String(y).slice(2)}` : base
+  }
 
   return (
     <div className="space-y-6">
@@ -199,8 +223,8 @@ export function PersonStats() {
               </div>
               <div className="bg-card border border-rule shadow-card rounded-3xl px-4 pt-5 pb-3 overflow-x-auto">
                 <div className="flex items-end gap-3 min-h-[120px]" style={{ minWidth: sortedPeriods.length > 6 ? sortedPeriods.length * 52 : undefined }}>
-                  {sortedPeriods.map((key, i) => {
-                    const pm = byPeriod.get(key)!
+                  {sortedPeriods.map(key => {
+                    const pm = byPeriod.get(key) ?? new Map<string, number>()
                     return (
                       <div key={key} className="flex-1 flex flex-col items-center gap-1.5 min-w-[44px]">
                         <div className="flex items-end gap-[2px] h-[110px] w-full justify-center">
@@ -214,7 +238,7 @@ export function PersonStats() {
                             )
                           })}
                         </div>
-                        <p className="text-[10px] text-faint font-semibold uppercase tracking-wide">{periodLabel(trendLabels[i])}</p>
+                        <p className="text-[10px] text-faint font-semibold uppercase tracking-wide whitespace-nowrap">{trendLabelFor(key)}</p>
                       </div>
                     )
                   })}

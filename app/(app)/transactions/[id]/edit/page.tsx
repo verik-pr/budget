@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Check, ArrowLeft } from "lucide-react"
-import { CONTRIBUTORS } from "@/lib/utils"
+import { CONTRIBUTORS, contributorFromName, parseAmount } from "@/lib/utils"
 import { Skeleton } from "@/components/skeleton"
 import { useToast } from "@/components/toast"
 
@@ -13,6 +14,7 @@ type Account = { id: string; name: string; icon: string; color: string }
 export default function EditTransactionPage() {
   const router = useRouter()
   const toast = useToast()
+  const { data: session } = useSession()
   const { id } = useParams<{ id: string }>()
 
   const [categories, setCategories] = useState<Category[]>([])
@@ -23,16 +25,35 @@ export default function EditTransactionPage() {
   const [description, setDescription] = useState("")
   const [date, setDate] = useState("")
   const [contributor, setContributor] = useState("")
+  const [splitMode, setSplitMode] = useState<"solo" | "half" | "full">("solo")
   const [accountId, setAccountId] = useState("")
+  const [txUserName, setTxUserName] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // Zahler-Fallback: der ERSTELLER der Buchung (nicht der editierende Session-
+  // User) — sonst kippt ein nachträglicher Split durch den Partner die
+  // Schuldrichtung («Leer lassen = du selbst» meint den Ersteller)
+  const fallbackName = txUserName || session?.user?.name || ""
+  const payerValue = contributor || contributorFromName(fallbackName)
+  const canSplit = type === "expense" && (payerValue === "erik" || payerValue === "celine")
+  const partnerValue = payerValue === "erik" ? "celine" : "erik"
+  const partner = CONTRIBUTORS.find(c => c.value === partnerValue) ?? CONTRIBUTORS[1]
+  const payerFirst = (CONTRIBUTORS.find(c => c.value === payerValue)?.label ?? "Ich").split(" ")[0]
+  const partnerFirst = partner.label.split(" ")[0]
+  const previewAmount = parseAmount(amount)
+
   useEffect(() => {
     Promise.all([
-      fetch(`/api/transactions/${id}`).then(r => r.json()),
+      fetch(`/api/transactions/${id}`).then(r => r.ok ? r.json() : null),
       fetch("/api/categories").then(r => r.json()),
       fetch("/api/accounts").then(r => r.json()),
     ]).then(([tx, cats, accs]) => {
+      if (!tx || !tx.category) {
+        toast("Buchung nicht gefunden", "error")
+        router.replace("/transactions")
+        return
+      }
       setCategories(cats)
       setAccounts(accs)
       setType(tx.category.type)
@@ -41,20 +62,40 @@ export default function EditTransactionPage() {
       setDescription(tx.description ?? "")
       setDate(new Date(tx.date).toISOString().split("T")[0])
       setContributor(tx.contributor ?? "")
+      setSplitMode(tx.sharedWith ? (tx.sharedRatio === 0.5 ? "half" : "full") : "solo")
       setAccountId(tx.accountId ?? "")
+      setTxUserName(tx.user?.name ?? "")
       setLoading(false)
+    }).catch(() => {
+      toast("Konnte Buchung nicht laden", "error")
+      router.replace("/transactions")
     })
-  }, [id])
+  }, [id, router, toast])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!amount || !categoryId || !date) return
+    const parsedAmount = parseAmount(amount)
+    if (!parsedAmount) {
+      toast("Ungültiger Betrag", "error")
+      return
+    }
     setSaving(true)
     try {
+      const splitActive = canSplit && splitMode !== "solo"
       const res = await fetch(`/api/transactions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, categoryId, description, date, contributor: contributor || null, accountId: accountId || null }),
+        body: JSON.stringify({
+          amount: parsedAmount,
+          categoryId,
+          description,
+          date,
+          contributor: splitActive ? payerValue : contributor || null,
+          accountId: accountId || null,
+          sharedWith: splitActive ? partnerValue : null,
+          sharedRatio: splitActive ? (splitMode === "half" ? 0.5 : 1.0) : null,
+        }),
       })
       if (!res.ok) throw new Error()
       toast("Buchung aktualisiert")
@@ -179,6 +220,39 @@ export default function EditTransactionPage() {
               ))}
             </div>
           </div>
+
+          {/* Teilen */}
+          {canSplit && (
+            <div>
+              <p className="kicker text-muted mb-3">Teilen</p>
+              <div className="flex gap-2">
+                {([
+                  { mode: "solo" as const, label: `Nur ${payerFirst}` },
+                  { mode: "half" as const, label: "50/50" },
+                  { mode: "full" as const, label: `Für ${partnerFirst}` },
+                ]).map(opt => (
+                  <button key={opt.mode} type="button"
+                    onClick={() => setSplitMode(opt.mode)}
+                    style={splitMode === opt.mode && opt.mode !== "solo" ? { backgroundColor: partner.color } : {}}
+                    className={`flex-1 px-3 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97] ${
+                      splitMode === opt.mode
+                        ? opt.mode === "solo" ? "bg-ink text-cream shadow-md" : "text-cream shadow-md"
+                        : "bg-card border border-rule text-muted"
+                    }`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {splitMode !== "solo" && previewAmount !== null && (
+                <div className="flex justify-between mt-2 px-1">
+                  <p className="text-xs text-muted">{partnerFirst} schuldet</p>
+                  <p className="text-xs font-bold tabular-nums" style={{ color: partner.color }}>
+                    CHF {(previewAmount * (splitMode === "half" ? 0.5 : 1)).toFixed(2)}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <button type="submit" disabled={saving || !amount || !categoryId}
             className="w-full bg-pine text-cream rounded-2xl py-4 font-bold text-sm disabled:opacity-30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">

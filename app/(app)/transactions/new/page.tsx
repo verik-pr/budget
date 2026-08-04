@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Camera, X, Check, ScanLine, ArrowLeft, Sparkles } from "lucide-react"
 import Link from "next/link"
-import { CONTRIBUTORS } from "@/lib/utils"
+import { CONTRIBUTORS, contributorFromName, formatCHF, parseAmount, todayLocalISO } from "@/lib/utils"
 import { useToast } from "@/components/toast"
 
 type Category = { id: string; name: string; icon: string; type: string }
@@ -13,16 +14,29 @@ type Account = { id: string; name: string; icon: string; color: string; type: st
 export default function NewTransactionPage() {
   const router = useRouter()
   const toast = useToast()
+  const { data: session } = useSession()
   const fileRef = useRef<HTMLInputElement>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [type, setType] = useState<"expense" | "income">("expense")
   const [amount, setAmount] = useState("")
   const [categoryId, setCategoryId] = useState("")
   const [description, setDescription] = useState("")
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0])
+  const [date, setDate] = useState(todayLocalISO())
   const [contributor, setContributor] = useState("")
+  const [splitMode, setSplitMode] = useState<"solo" | "half" | "full">("solo")
   const [accountId, setAccountId] = useState("")
   const [accounts, setAccounts] = useState<Account[]>([])
+
+  // Zahler = gewählter "Von wem"-Contributor, sonst der eingeloggte User.
+  // Splits nur zwischen Erik und Céline (nicht bei Eltern) und nur bei Ausgaben.
+  const sessionContrib = contributorFromName(session?.user?.name ?? "")
+  const payerValue = contributor || sessionContrib
+  const canSplit = type === "expense" && (payerValue === "erik" || payerValue === "celine")
+  const partnerValue = payerValue === "erik" ? "celine" : "erik"
+  const partner = CONTRIBUTORS.find(c => c.value === partnerValue) ?? CONTRIBUTORS[1]
+  const payerFirst = (CONTRIBUTORS.find(c => c.value === payerValue)?.label ?? "Ich").split(" ")[0]
+  const partnerFirst = partner.label.split(" ")[0]
+  const previewAmount = parseAmount(amount)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -79,6 +93,11 @@ export default function NewTransactionPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!amount || !categoryId || !date) return
+    const parsedAmount = parseAmount(amount)
+    if (!parsedAmount) {
+      toast("Ungültiger Betrag", "error")
+      return
+    }
     setLoading(true)
 
     try {
@@ -92,10 +111,22 @@ export default function NewTransactionPage() {
         photoPath = data.filename
       }
 
+      const splitActive = canSplit && splitMode !== "solo"
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parseFloat(amount), categoryId, description, date, photoPath, contributor: contributor || null, accountId: accountId || null }),
+        body: JSON.stringify({
+          amount: parsedAmount,
+          categoryId,
+          description,
+          date,
+          photoPath,
+          // Bei Split muss der Zahler explizit gesetzt sein, sonst fällt die
+          // Buchung aus der Auslagen-Abrechnung (/api/debts matcht auf contributor)
+          contributor: splitActive ? payerValue : contributor || null,
+          accountId: accountId || null,
+          ...(splitActive ? { sharedWith: partnerValue, sharedRatio: splitMode === "half" ? 0.5 : 1.0 } : {}),
+        }),
       })
       if (!res.ok) throw new Error()
       toast("Buchung gespeichert")
@@ -242,6 +273,39 @@ export default function NewTransactionPage() {
             </div>
             <p className="text-faint text-xs mt-2 italic font-serif">Leer lassen = du selbst</p>
           </div>
+
+          {/* Teilen */}
+          {canSplit && (
+            <div>
+              <p className="kicker text-muted mb-3">Teilen</p>
+              <div className="flex gap-2">
+                {([
+                  { mode: "solo" as const, label: `Nur ${payerFirst}` },
+                  { mode: "half" as const, label: "50/50" },
+                  { mode: "full" as const, label: `Für ${partnerFirst}` },
+                ]).map(opt => (
+                  <button key={opt.mode} type="button"
+                    onClick={() => setSplitMode(opt.mode)}
+                    style={splitMode === opt.mode && opt.mode !== "solo" ? { backgroundColor: partner.color } : {}}
+                    className={`flex-1 px-3 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97] ${
+                      splitMode === opt.mode
+                        ? opt.mode === "solo" ? "bg-ink text-cream shadow-md" : "text-cream shadow-md"
+                        : "bg-card border border-rule text-muted"
+                    }`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {splitMode !== "solo" && previewAmount !== null && (
+                <div className="flex justify-between mt-2 px-1">
+                  <p className="text-xs text-muted">{partnerFirst} schuldet</p>
+                  <p className="text-xs font-bold tabular-nums" style={{ color: partner.color }}>
+                    CHF {(previewAmount * (splitMode === "half" ? 0.5 : 1)).toFixed(2)}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Photo */}
           <div>

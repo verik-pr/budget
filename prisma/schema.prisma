@@ -134,15 +134,27 @@ model SavingsGoal {
 }
 
 model RecurringTransaction {
-  id           String        @id @default(cuid())
-  name         String
-  amount       Float
-  categoryId   String
-  category     Category      @relation(fields: [categoryId], references: [id])
-  userId       String
-  user         User          @relation(fields: [userId], references: [id])
-  dayOfMonth   Int           @default(1)
-  active       Boolean       @default(true)
-  transactions Transaction[]
-  createdAt    DateTime      @default(now())
+  id                String        @id @default(cuid())
+  name              String
+  amount            Float
+  categoryId        String
+  category          Category      @relation(fields: [categoryId], references: [id])
+  userId            String
+  user              User          @relation(fields: [userId], references: [id])
+  dayOfMonth        Int           @default(1)
+  active            Boolean       @default(true)
+  lastAppliedPeriod String?       // "YYYY-MM": bis zu diesem Monat angewendet — verhindert Wiederauferstehung gelöschter Buchungen
+  transactions      Transaction[]
+  createdAt         DateTime      @default(now())
+}
+
+// Ausgleich des Gemeinsam-Saldos: fromContributor hat toContributor amount bezahlt
+model Settlement {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now())
+  amount          Float
+  fromContributor String
+  toContributor   String
+  note            String?
+  createdAt       DateTime @default(now())
 }

@@ -8,7 +8,7 @@ function periodStartFor(date: Date): Date {
     : new Date(date.getFullYear(), date.getMonth() - 1, 24)
 }
 
-export async function checkBudgetThresholds(userId: string, categoryId: string, txDate: Date) {
+export async function checkBudgetThresholds(_bookingUserId: string, categoryId: string, txDate: Date) {
   const category = await prisma.category.findUnique({ where: { id: categoryId } })
   if (!category?.budget || category.budget <= 0 || category.type !== "expense") return
 
@@ -25,22 +25,29 @@ export async function checkBudgetThresholds(userId: string, categoryId: string, 
   const thresholds: number[] = []
   if (pct >= 100) thresholds.push(100)
   else if (pct >= 80) thresholds.push(80)
+  if (thresholds.length === 0) return
+
+  // Budgets sind gemeinsam — beide informieren, nicht nur wer gerade gebucht hat.
+  // BudgetAlertSent ist pro User unique je (Kategorie, Schwelle, Periode).
+  const users = await prisma.user.findMany({ select: { id: true } })
 
   for (const threshold of thresholds) {
-    try {
-      await prisma.budgetAlertSent.create({
-        data: { userId, categoryId, threshold, periodStart },
+    for (const user of users) {
+      try {
+        await prisma.budgetAlertSent.create({
+          data: { userId: user.id, categoryId, threshold, periodStart },
+        })
+      } catch {
+        continue
+      }
+      const isOver = threshold === 100
+      await sendPush(user.id, "budgetWarning", {
+        title: isOver ? `${category.icon} ${category.name}: Budget überschritten` : `${category.icon} ${category.name}: 80% erreicht`,
+        body: `${formatCHF(spent)} von ${formatCHF(category.budget)} ausgegeben`,
+        url: "/budgets",
+        tag: `budget-${categoryId}-${threshold}`,
       })
-    } catch {
-      continue
     }
-    const isOver = threshold === 100
-    await sendPush(userId, "budgetWarning", {
-      title: isOver ? `${category.icon} ${category.name}: Budget überschritten` : `${category.icon} ${category.name}: 80% erreicht`,
-      body: `${formatCHF(spent)} von ${formatCHF(category.budget)} ausgegeben`,
-      url: "/budgets",
-      tag: `budget-${categoryId}-${threshold}`,
-    })
   }
 }
 

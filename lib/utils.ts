@@ -31,6 +31,26 @@ export function expenseShares(
   ]
 }
 
+// Beträge wie "12,50", "1'234.50" oder "12.50" robust parsen (CH-Tastatur!)
+export function parseAmount(input: string): number | null {
+  const cleaned = input.trim().replace(/['\s]/g, "").replace(",", ".")
+  if (!cleaned) return null
+  const n = Number(cleaned)
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null
+}
+
+// Heutiges Datum als YYYY-MM-DD in LOKALER Zeit (toISOString wäre UTC:
+// zwischen 00:00 und 02:00 Schweizer Zeit ergäbe das den Vortag)
+export function todayLocalISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+// Offener Kreditkarten-Saldo: Ausgaben minus Zahlungen (Einnahmen-Buchungen)
+export function creditCardBalanceOf(txs: { amount: number; category: { type: string } }[]): number {
+  return txs.reduce((s, t) => s + (t.category.type === "income" ? -t.amount : t.amount), 0)
+}
+
 export function formatCHF(amount: number) {
   return new Intl.NumberFormat("de-CH", { style: "currency", currency: "CHF" }).format(amount)
 }

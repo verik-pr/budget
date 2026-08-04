@@ -31,8 +31,18 @@ export async function GET(req: Request) {
     end = new Date(year, month, 1)
   }
 
+  // Beim persönlichen Konto auch Buchungen ohne Konto-Zuordnung zeigen —
+  // gleiche Logik wie das Dashboard, sonst widersprechen sich die Summen
+  let accountFilter = {}
+  if (accountId) {
+    const account = await prisma.account.findUnique({ where: { id: accountId }, select: { type: true } })
+    accountFilter = account?.type === "personal"
+      ? { OR: [{ accountId }, { accountId: null }] }
+      : { accountId }
+  }
+
   const transactions = await prisma.transaction.findMany({
-    where: { date: { gte: start, lt: end }, ...(accountId ? { accountId } : {}) },
+    where: { date: { gte: start, lt: end }, ...accountFilter },
     include: { category: true, user: { select: { id: true, name: true, color: true } }, account: { select: { id: true, name: true, icon: true, color: true } } },
     orderBy: { date: "desc" },
   })

@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get("file") as File | null
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 })
+  if (file.size > 15 * 1024 * 1024) return NextResponse.json({ error: "Datei zu gross (max. 15 MB)" }, { status: 413 })
 
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { asPositiveNumber, asValidDate } from "@/lib/api-validation"
 
 function auth(req: NextRequest) {
   const key = process.env.AGENT_API_KEY
@@ -33,7 +34,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { amount, description, date, categoryId, categoryName, contributor, accountId, accountName, userEmail } = body
 
-  if (!amount || amount <= 0) return NextResponse.json({ error: "amount required" }, { status: 400 })
+  const parsedAmount = asPositiveNumber(amount)
+  if (parsedAmount === null) return NextResponse.json({ error: "amount required (positive number)" }, { status: 400 })
+  const parsedDate = date ? asValidDate(date) : new Date()
+  if (!parsedDate) return NextResponse.json({ error: "invalid date" }, { status: 400 })
 
   // Resolve category
   let resolvedCategoryId = categoryId
@@ -61,9 +65,9 @@ export async function POST(req: NextRequest) {
 
   const transaction = await prisma.transaction.create({
     data: {
-      amount: parseFloat(String(amount)),
+      amount: parsedAmount,
       description: description ?? null,
-      date: date ? new Date(date) : new Date(),
+      date: parsedDate,
       categoryId: resolvedCategoryId,
       userId: user.id,
       contributor: contributor ?? null,

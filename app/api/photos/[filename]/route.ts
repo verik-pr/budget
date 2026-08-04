@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ file
     const file = await readFile(join(UPLOAD_DIR, filename))
     const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg"
     const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg"
-    return new NextResponse(file, { headers: { "Content-Type": contentType, "Cache-Control": "max-age=31536000" } })
+    return new NextResponse(file, { headers: { "Content-Type": contentType, "Cache-Control": "private, max-age=31536000, immutable" } })
   } catch {
     return new NextResponse("Not found", { status: 404 })
   }

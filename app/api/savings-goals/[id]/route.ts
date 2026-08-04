@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { notifyGoalReached } from "@/lib/push-triggers"
+import { asNonNegativeNumber } from "@/lib/api-validation"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -10,7 +11,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params
   const { savedAmount } = await req.json()
-  const newAmount = parseFloat(savedAmount)
+  const newAmount = asNonNegativeNumber(savedAmount)
+  if (newAmount === null) return NextResponse.json({ error: "Ungültiger Betrag" }, { status: 400 })
 
   const before = await prisma.savingsGoal.findUnique({ where: { id } })
   const goal = await prisma.savingsGoal.update({

@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { formatCHF } from "@/lib/utils"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { creditCardBalanceOf, formatCHF, parseAmount } from "@/lib/utils"
+import { DeltaCard } from "@/components/delta-card"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, X, Check } from "lucide-react"
 import { CONTRIBUTORS } from "@/lib/utils"
 import { useConfirm } from "@/components/confirm-sheet"
@@ -30,6 +31,7 @@ type DebtTx = {
   sharedRatio: number | null
   category: { id: string; name: string; icon: string }
 }
+type Settlement = { id: string; date: string; amount: number; fromContributor: string; toContributor: string }
 type DebtData = {
   net: number
   partnerOwesMe: number
@@ -37,7 +39,10 @@ type DebtData = {
   partnerLabel: string
   partnerColor: string
   myLabel: string
+  myValue: string
+  partnerValue: string
   transactions: DebtTx[]
+  settlements: Settlement[]
 }
 
 function initialPeriodStart() {
@@ -101,16 +106,16 @@ function ProvisionForm({ initial, onSave, onCancel }: {
         <input type="date" value={nextDueDate} onChange={e => setNextDueDate(e.target.value)}
           className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-pine/50" />
       </div>
-      {totalAmount && (
+      {parseAmount(totalAmount) !== null && (
         <p className="text-muted text-xs italic font-serif">
-          = CHF {(parseFloat(totalAmount) / frequencyMonths).toFixed(2)}/Monat beiseitelegen
+          = CHF {((parseAmount(totalAmount) as number) / frequencyMonths).toFixed(2)}/Monat beiseitelegen
         </p>
       )}
       <div className="flex gap-2 pt-1">
         <button onClick={onCancel} className="flex-1 bg-paper border border-rule text-muted rounded-xl py-2 text-sm font-bold">Abbrechen</button>
         <button
-          onClick={() => { if (name && totalAmount && nextDueDate) onSave({ name, icon, totalAmount: parseFloat(totalAmount), frequencyMonths, nextDueDate }) }}
-          disabled={!name || !totalAmount || !nextDueDate}
+          onClick={() => { const parsed = parseAmount(totalAmount); if (name && parsed && nextDueDate) onSave({ name, icon, totalAmount: parsed, frequencyMonths, nextDueDate }) }}
+          disabled={!name || !parseAmount(totalAmount) || !nextDueDate}
           className="flex-1 bg-pine text-cream rounded-xl py-2 text-sm font-bold disabled:opacity-30">
           Speichern
         </button>
@@ -126,18 +131,26 @@ export default function StatsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [prevTransactions, setPrevTransactions] = useState<Transaction[]>([])
   const [tab, setTab] = useState<"expense" | "income" | "personen" | "planung" | "gemeinsam">("expense")
+  const [deltaOpen, setDeltaOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const fetchSeq = useRef(0)
 
-  // ?tab=personen etc. als Start-Tab (z.B. vom Dashboard-Modul verlinkt)
+  // ?tab=personen etc. als Start-Tab (z.B. vom Dashboard-Modul verlinkt),
+  // ?delta=1 öffnet die Delta-Karte direkt
   useEffect(() => {
-    const wanted = new URLSearchParams(window.location.search).get("tab")
+    const params = new URLSearchParams(window.location.search)
+    const wanted = params.get("tab")
     if (wanted === "personen" || wanted === "income" || wanted === "planung" || wanted === "gemeinsam") setTab(wanted)
+    if (params.get("delta") === "1") setDeltaOpen(true)
   }, [])
 
   // Gemeinsame Auslagen (kumulierte Abrechnung)
   const [debtData, setDebtData] = useState<DebtData | null>(null)
   const [debtLoading, setDebtLoading] = useState(false)
+  const [settleAmount, setSettleAmount] = useState("")
+  const [settling, setSettling] = useState(false)
 
   // Credit cards
   const [creditAccounts, setCreditAccounts] = useState<(Account & { balance: number })[]>([])
@@ -161,29 +174,37 @@ export default function StatsPage() {
           const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
           const params = new URLSearchParams({ startDate: start.toISOString(), endDate: end.toISOString(), accountId: acc.id })
           const txs = await fetch(`/api/transactions?${params}`).then(r => r.json())
-          const balance = txs.reduce((s: number, t: { amount: number }) => s + t.amount, 0)
-          return { ...acc, balance }
+          // Zahlungen (Einnahmen-Buchungen) reduzieren den offenen Saldo
+          return { ...acc, balance: creditCardBalanceOf(txs) }
         })).then(setCreditAccounts)
       })
   }, [])
 
   const fetchTransactions = useCallback(async (showLoader: boolean) => {
-    if (accountId === undefined) return
     if (showLoader) setLoading(true)
+    const seq = ++fetchSeq.current
     const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
-    const params = new URLSearchParams({
-      startDate: periodStart.toISOString(),
-      endDate: end.toISOString(),
+    const prevStart = new Date(periodStart.getFullYear(), periodStart.getMonth() - 1, 24)
+    const mkParams = (s: Date, e: Date) => new URLSearchParams({
+      startDate: s.toISOString(),
+      endDate: e.toISOString(),
       ...(accountId ? { accountId } : {}),
     })
     try {
-      const res = await fetch(`/api/transactions?${params}`)
-      if (!res.ok) throw new Error()
-      setTransactions(await res.json())
+      const [res, prevRes] = await Promise.all([
+        fetch(`/api/transactions?${mkParams(periodStart, end)}`),
+        fetch(`/api/transactions?${mkParams(prevStart, periodStart)}`),
+      ])
+      if (!res.ok || !prevRes.ok) throw new Error()
+      const [cur, prev] = await Promise.all([res.json(), prevRes.json()])
+      // Veraltete Antworten verwerfen (schnelles Perioden-Blättern)
+      if (seq !== fetchSeq.current) return
+      setTransactions(cur)
+      setPrevTransactions(prev)
     } catch {
-      toast("Konnte Statistik nicht laden", "error")
+      if (seq === fetchSeq.current) toast("Konnte Statistik nicht laden", "error")
     } finally {
-      setLoading(false)
+      if (seq === fetchSeq.current) setLoading(false)
     }
   }, [periodStart, accountId, toast])
 
@@ -263,6 +284,39 @@ export default function StatsPage() {
     } catch {
       setProvisions(backup)
       toast("Konnte nicht gelöscht werden", "error")
+    }
+  }
+
+  async function settleDebt() {
+    if (!debtData || settling) return
+    const open = Math.round(Math.abs(debtData.net) * 100) / 100
+    const amt = settleAmount.trim() ? parseAmount(settleAmount) : open
+    if (!amt) { toast("Ungültiger Betrag", "error"); return }
+    if (amt > open + 0.005) { toast("Betrag ist grösser als der offene Saldo", "error"); return }
+    const partnerFirst = debtData.partnerLabel.split(" ")[0]
+    const description = debtData.net > 0
+      ? `${partnerFirst} zahlt dir ${formatCHF(amt)} — als ausgeglichen verbuchen?`
+      : `Du zahlst ${partnerFirst} ${formatCHF(amt)} — als ausgeglichen verbuchen?`
+    const ok = await confirm({ title: "Saldo ausgleichen?", description, confirmLabel: "Ausgleichen" })
+    if (!ok) return
+    setSettling(true)
+    try {
+      const res = await fetch("/api/debts/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amt }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error)
+      }
+      toast("Ausgeglichen 🤝")
+      setSettleAmount("")
+      await fetchDebts()
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Konnte nicht ausgleichen", "error")
+    } finally {
+      setSettling(false)
     }
   }
 
@@ -366,6 +420,12 @@ export default function StatsPage() {
                 <p className="amount text-[34px] text-ink">{formatCHF(total)}</p>
                 <p className="kicker text-muted">Total</p>
               </div>
+              {tab === "expense" && !loading && (
+                <div className="mb-4">
+                  <DeltaCard current={transactions} previous={prevTransactions}
+                    open={deltaOpen} onToggle={() => setDeltaOpen(o => !o)} />
+                </div>
+              )}
               {loading ? (
                 <SkeletonList count={5} />
               ) : byCategory.length === 0 ? (
@@ -547,6 +607,52 @@ export default function StatsPage() {
                     </div>
                   )
                 })()}
+
+                {/* Ausgleichen */}
+                {Math.abs(debtData.net) >= 0.01 && (
+                  <div className="bg-card border border-rule shadow-card rounded-3xl px-5 py-4">
+                    <p className="kicker text-muted mb-3">Ausgleichen</p>
+                    <div className="flex gap-2">
+                      <input type="text" inputMode="decimal" value={settleAmount}
+                        onChange={e => setSettleAmount(e.target.value)}
+                        placeholder={Math.abs(debtData.net).toFixed(2)}
+                        className="flex-1 min-w-0 bg-paper border border-rule rounded-2xl px-4 py-3 text-sm text-ink tabular-nums placeholder:text-faint focus:outline-none focus:border-pine/50" />
+                      <button onClick={settleDebt} disabled={settling}
+                        className="bg-pine text-cream rounded-2xl px-5 py-3 text-sm font-bold disabled:opacity-30 active:scale-[0.97] transition-all flex items-center gap-1.5">
+                        <Check className="w-4 h-4" />
+                        {settling ? "…" : "Ausgleichen"}
+                      </button>
+                    </div>
+                    <p className="text-faint text-xs mt-2 italic font-serif">
+                      Leer lassen = ganzen Saldo ({formatCHF(Math.abs(debtData.net))}) ausgleichen
+                    </p>
+                  </div>
+                )}
+
+                {/* Ausgleichs-Historie */}
+                {debtData.settlements.length > 0 && (
+                  <div>
+                    <p className="kicker text-muted mb-3">Ausgleiche</p>
+                    <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
+                      {debtData.settlements.slice(0, 5).map((s, i) => {
+                        const fromLabel = (CONTRIBUTORS.find(c => c.value === s.fromContributor)?.label ?? s.fromContributor).split(" ")[0]
+                        const toLabel = (CONTRIBUTORS.find(c => c.value === s.toContributor)?.label ?? s.toContributor).split(" ")[0]
+                        return (
+                          <div key={s.id} className={`flex items-center gap-3 px-5 py-3.5 ${i < Math.min(debtData.settlements.length, 5) - 1 ? "border-b border-rule/60" : ""}`}>
+                            <div className="w-7 h-7 rounded-full bg-pineSoft flex items-center justify-center flex-shrink-0">
+                              <Check className="w-3.5 h-3.5 text-pine" strokeWidth={3} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-ink">{fromLabel} → {toLabel}</p>
+                              <p className="text-xs text-muted">{new Date(s.date).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}</p>
+                            </div>
+                            <p className="amount text-[15px] text-pine flex-shrink-0">{formatCHF(s.amount)}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Pro Person — wer hat ausgelegt */}
                 {byPerson.length > 0 && (

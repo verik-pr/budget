@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
-import { formatCHF } from "@/lib/utils"
+import { formatCHF, parseAmount } from "@/lib/utils"
 import { SkeletonList } from "@/components/skeleton"
 import { useToast } from "@/components/toast"
 
@@ -43,7 +43,12 @@ export default function BudgetsPage() {
 
   async function save(cat: Category) {
     const raw = drafts[cat.id]
-    const newBudget = raw === "" ? null : parseFloat(raw)
+    const newBudget = raw === "" ? null : parseAmount(raw)
+    if (raw !== "" && newBudget === null) {
+      toast("Ungültiger Betrag", "error")
+      setDrafts(d => ({ ...d, [cat.id]: cat.budget?.toString() ?? "" }))
+      return
+    }
     if (newBudget === cat.budget) return
     setSavingId(cat.id)
     try {

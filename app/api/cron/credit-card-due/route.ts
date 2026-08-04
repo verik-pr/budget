@@ -13,8 +13,14 @@ export async function GET(req: Request) {
   const target = new Date(today)
   target.setDate(today.getDate() + DAYS_BEFORE)
   const targetDay = target.getDate()
+  // dueDay 29–31 auf den Monatsletzten klemmen, sonst entfällt der Reminder
+  // in kürzeren Monaten komplett
+  const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
+  const dueDays = targetDay === lastDayOfTargetMonth
+    ? Array.from({ length: 32 - targetDay }, (_, i) => targetDay + i)
+    : [targetDay]
 
-  const cards = await prisma.account.findMany({ where: { type: "credit", dueDay: targetDay } })
+  const cards = await prisma.account.findMany({ where: { type: "credit", dueDay: { in: dueDays } } })
   if (cards.length === 0) return NextResponse.json({ sent: 0, reason: "no cards due" })
 
   const users = await prisma.user.findMany()

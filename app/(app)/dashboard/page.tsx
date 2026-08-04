@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { CONTRIBUTORS, expenseShares, formatCHF } from "@/lib/utils"
+import { getDebtData } from "@/lib/debts"
+import { getUpcomingPayments } from "@/lib/upcoming"
 import { AccountSelector } from "@/components/account-selector"
 import { TransactionList } from "@/components/transaction-list"
 import { ForecastCard } from "@/components/forecast-card"
@@ -56,6 +58,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }),
   ])
 
+  const [debtData, upcoming] = await Promise.all([
+    getDebtData(session?.user?.name ?? ""),
+    getUpcomingPayments(now),
+  ])
+  const hasDebtHistory = debtData.transactions.length > 0 || debtData.settlements.length > 0
+  const upcomingTotal = upcoming.reduce((s, u) => s + u.amount, 0)
+
   const income = transactions.filter(t => t.category.type === "income").reduce((s, t) => s + t.amount, 0)
   const expenses = transactions.filter(t => t.category.type === "expense").reduce((s, t) => s + t.amount, 0)
   const balance = income - expenses
@@ -101,9 +110,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <p className="kicker text-cream/40 mb-1.5">Ausgaben</p>
             <p className="amount text-cream text-xl">−{formatCHF(expenses)}</p>
             {expenseDiff !== null && (
-              <p className={`text-xs mt-1 font-medium ${expenseDiff <= 0 ? "text-[#7fc89e]" : "text-[#e89890]"}`}>
+              <Link href="/stats?delta=1" className={`block text-xs mt-1 font-medium underline decoration-dotted underline-offset-2 ${expenseDiff <= 0 ? "text-[#7fc89e]" : "text-[#e89890]"}`}>
                 {expenseDiff >= 0 ? "+" : ""}{expenseDiff}% vs. Vormonat
-              </p>
+              </Link>
             )}
           </div>
         </div>
@@ -137,6 +146,66 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   </div>
                 ))}
               </div>
+            </Link>
+          </div>
+        )}
+
+        {/* Gemeinsam-Saldo: sind wir quitt? */}
+        {hasDebtHistory && (
+          <div className="px-6 pt-6">
+            <Link href="/stats?tab=gemeinsam"
+              className="block bg-card border border-rule shadow-card rounded-3xl px-5 py-4 active:scale-[0.99] transition-transform">
+              {Math.abs(debtData.net) < 0.01 ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-pineSoft flex items-center justify-center text-base flex-shrink-0">🤝</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-pine">Ihr seid quitt</p>
+                    <p className="text-xs text-muted mt-0.5">Keine offenen Auslagen</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-cream text-xs font-black flex-shrink-0"
+                    style={{ backgroundColor: debtData.partnerColor }}>
+                    {debtData.partnerLabel[0]}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-ink">
+                      {debtData.net > 0 ? `${debtData.partnerLabel} schuldet dir` : `Du schuldest ${debtData.partnerLabel}`}
+                    </p>
+                    <p className="text-xs text-muted mt-0.5">Tippen zum Abrechnen</p>
+                  </div>
+                  <p className="amount text-[19px] text-ink">{formatCHF(Math.abs(debtData.net))}</p>
+                </div>
+              )}
+            </Link>
+          </div>
+        )}
+
+        {/* Radar: Demnächst fällig */}
+        {upcoming.length > 0 && (
+          <div className="px-6 pt-6">
+            <Link href="/stats?tab=planung"
+              className="block bg-card border border-rule shadow-card rounded-3xl px-5 py-4 active:scale-[0.99] transition-transform">
+              <div className="flex items-baseline justify-between mb-3">
+                <p className="kicker text-muted">Demnächst fällig</p>
+                <p className="text-xs text-muted tabular-nums">30 Tage · <span className="font-bold text-ink">{formatCHF(upcomingTotal)}</span></p>
+              </div>
+              <div className="space-y-2.5">
+                {upcoming.slice(0, 5).map((u, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-base w-6 text-center flex-shrink-0">{u.icon}</span>
+                    <p className="text-sm font-semibold text-ink flex-1 truncate">{u.name}</p>
+                    <p className="text-xs text-muted flex-shrink-0">
+                      {u.date.toLocaleDateString("de-CH", { day: "numeric", month: "short" })}
+                    </p>
+                    <p className="amount text-[14px] text-ink flex-shrink-0 w-24 text-right">{formatCHF(u.amount)}</p>
+                  </div>
+                ))}
+              </div>
+              {upcoming.length > 5 && (
+                <p className="text-xs font-bold text-pine mt-3">{upcoming.length - 5} weitere in der Planung</p>
+              )}
             </Link>
           </div>
         )}

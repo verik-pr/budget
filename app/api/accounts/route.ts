@@ -18,8 +18,10 @@ export async function GET(req: Request) {
   if (mine) {
     const firstName = session.user.name?.split(" ")[0]?.toLowerCase() ?? ""
     const personal = accounts.find(a => a.type === "personal" && a.name.toLowerCase().includes(firstName))
-    const visible = accounts.filter(a => a.type === "shared" || a.id === personal?.id)
-    return NextResponse.json({ accounts: visible, defaultId: personal?.id ?? visible[0]?.id ?? null })
+    // credit-Konten mitliefern: der Planung-Tab zeigt Kreditkarten-Salden daraus
+    const visible = accounts.filter(a => a.type === "shared" || a.type === "credit" || a.id === personal?.id)
+    const defaultId = personal?.id ?? visible.find(a => a.type !== "credit")?.id ?? null
+    return NextResponse.json({ accounts: visible, defaultId })
   }
 
   return NextResponse.json(accounts)

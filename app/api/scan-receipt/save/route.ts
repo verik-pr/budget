@@ -32,10 +32,10 @@ export async function POST(req: Request) {
   const currentUser = await prisma.user.findUnique({ where: { email: session.user.email! } })
   if (!currentUser) return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 })
 
-  const categoryIds = [...new Set(items.map(item => asNullableString(item.categoryId)).filter(Boolean))] as string[]
-  if (categoryIds.length !== items.length) {
+  if (items.some(item => !asNullableString(item.categoryId))) {
     return NextResponse.json({ error: "Ungültige Kategorie" }, { status: 400 })
   }
+  const categoryIds = [...new Set(items.map(item => asNullableString(item.categoryId)))] as string[]
 
   const [categories, account] = await Promise.all([
     prisma.category.findMany({ where: { id: { in: categoryIds } } }),
@@ -67,7 +67,9 @@ export async function POST(req: Request) {
     const wanted = receiptMerchant?.trim().toLowerCase() ?? null
     const duplicate = [...groups.values()].find(g => {
       const sameTotal = Math.abs(g.total - incomingTotal) < 0.005
-      const sameMerchant = wanted === null || g.merchant?.trim().toLowerCase() === wanted
+      const sameMerchant = wanted === null
+        ? g.merchant == null
+        : g.merchant?.trim().toLowerCase() === wanted
       return sameTotal && sameMerchant
     })
     if (duplicate) {
