@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { CONTRIBUTORS, expenseShares, formatCHF } from "@/lib/utils"
-import { getDebtData } from "@/lib/debts"
 import { getUpcomingPayments } from "@/lib/upcoming"
 import { AccountSelector } from "@/components/account-selector"
 import { TransactionList } from "@/components/transaction-list"
@@ -58,11 +57,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }),
   ])
 
-  const [debtData, upcoming] = await Promise.all([
-    getDebtData(session?.user?.name ?? ""),
-    getUpcomingPayments(now),
-  ])
-  const hasDebtHistory = debtData.transactions.length > 0 || debtData.settlements.length > 0
+  const upcoming = await getUpcomingPayments(now)
   const upcomingTotal = upcoming.reduce((s, u) => s + u.amount, 0)
 
   const income = transactions.filter(t => t.category.type === "income").reduce((s, t) => s + t.amount, 0)
@@ -146,38 +141,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   </div>
                 ))}
               </div>
-            </Link>
-          </div>
-        )}
-
-        {/* Gemeinsam-Saldo: sind wir quitt? */}
-        {hasDebtHistory && (
-          <div className="px-6 pt-6">
-            <Link href="/stats?tab=gemeinsam"
-              className="block bg-card border border-rule shadow-card rounded-3xl px-5 py-4 active:scale-[0.99] transition-transform">
-              {Math.abs(debtData.net) < 0.01 ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-pineSoft flex items-center justify-center text-base flex-shrink-0">🤝</div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-pine">Ihr seid quitt</p>
-                    <p className="text-xs text-muted mt-0.5">Keine offenen Auslagen</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-cream text-xs font-black flex-shrink-0"
-                    style={{ backgroundColor: debtData.partnerColor }}>
-                    {debtData.partnerLabel[0]}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-ink">
-                      {debtData.net > 0 ? `${debtData.partnerLabel} schuldet dir` : `Du schuldest ${debtData.partnerLabel}`}
-                    </p>
-                    <p className="text-xs text-muted mt-0.5">Tippen zum Abrechnen</p>
-                  </div>
-                  <p className="amount text-[19px] text-ink">{formatCHF(Math.abs(debtData.net))}</p>
-                </div>
-              )}
             </Link>
           </div>
         )}

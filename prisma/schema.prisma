@@ -147,14 +147,3 @@ model RecurringTransaction {
   transactions      Transaction[]
   createdAt         DateTime      @default(now())
 }
-
-// Ausgleich des Gemeinsam-Saldos: fromContributor hat toContributor amount bezahlt
-model Settlement {
-  id              String   @id @default(cuid())
-  date            DateTime @default(now())
-  amount          Float
-  fromContributor String
-  toContributor   String
-  note            String?
-  createdAt       DateTime @default(now())
-}

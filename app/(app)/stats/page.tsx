@@ -31,7 +31,6 @@ type DebtTx = {
   sharedRatio: number | null
   category: { id: string; name: string; icon: string }
 }
-type Settlement = { id: string; date: string; amount: number; fromContributor: string; toContributor: string }
 type DebtData = {
   net: number
   partnerOwesMe: number
@@ -39,10 +38,7 @@ type DebtData = {
   partnerLabel: string
   partnerColor: string
   myLabel: string
-  myValue: string
-  partnerValue: string
   transactions: DebtTx[]
-  settlements: Settlement[]
 }
 
 function initialPeriodStart() {
@@ -149,8 +145,6 @@ export default function StatsPage() {
   // Gemeinsame Auslagen (kumulierte Abrechnung)
   const [debtData, setDebtData] = useState<DebtData | null>(null)
   const [debtLoading, setDebtLoading] = useState(false)
-  const [settleAmount, setSettleAmount] = useState("")
-  const [settling, setSettling] = useState(false)
 
   // Credit cards
   const [creditAccounts, setCreditAccounts] = useState<(Account & { balance: number })[]>([])
@@ -284,39 +278,6 @@ export default function StatsPage() {
     } catch {
       setProvisions(backup)
       toast("Konnte nicht gelöscht werden", "error")
-    }
-  }
-
-  async function settleDebt() {
-    if (!debtData || settling) return
-    const open = Math.round(Math.abs(debtData.net) * 100) / 100
-    const amt = settleAmount.trim() ? parseAmount(settleAmount) : open
-    if (!amt) { toast("Ungültiger Betrag", "error"); return }
-    if (amt > open + 0.005) { toast("Betrag ist grösser als der offene Saldo", "error"); return }
-    const partnerFirst = debtData.partnerLabel.split(" ")[0]
-    const description = debtData.net > 0
-      ? `${partnerFirst} zahlt dir ${formatCHF(amt)} — als ausgeglichen verbuchen?`
-      : `Du zahlst ${partnerFirst} ${formatCHF(amt)} — als ausgeglichen verbuchen?`
-    const ok = await confirm({ title: "Saldo ausgleichen?", description, confirmLabel: "Ausgleichen" })
-    if (!ok) return
-    setSettling(true)
-    try {
-      const res = await fetch("/api/debts/settle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amt }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error)
-      }
-      toast("Ausgeglichen 🤝")
-      setSettleAmount("")
-      await fetchDebts()
-    } catch (e) {
-      toast(e instanceof Error && e.message ? e.message : "Konnte nicht ausgleichen", "error")
-    } finally {
-      setSettling(false)
     }
   }
 
@@ -607,52 +568,6 @@ export default function StatsPage() {
                     </div>
                   )
                 })()}
-
-                {/* Ausgleichen */}
-                {Math.abs(debtData.net) >= 0.01 && (
-                  <div className="bg-card border border-rule shadow-card rounded-3xl px-5 py-4">
-                    <p className="kicker text-muted mb-3">Ausgleichen</p>
-                    <div className="flex gap-2">
-                      <input type="text" inputMode="decimal" value={settleAmount}
-                        onChange={e => setSettleAmount(e.target.value)}
-                        placeholder={Math.abs(debtData.net).toFixed(2)}
-                        className="flex-1 min-w-0 bg-paper border border-rule rounded-2xl px-4 py-3 text-sm text-ink tabular-nums placeholder:text-faint focus:outline-none focus:border-pine/50" />
-                      <button onClick={settleDebt} disabled={settling}
-                        className="bg-pine text-cream rounded-2xl px-5 py-3 text-sm font-bold disabled:opacity-30 active:scale-[0.97] transition-all flex items-center gap-1.5">
-                        <Check className="w-4 h-4" />
-                        {settling ? "…" : "Ausgleichen"}
-                      </button>
-                    </div>
-                    <p className="text-faint text-xs mt-2 italic font-serif">
-                      Leer lassen = ganzen Saldo ({formatCHF(Math.abs(debtData.net))}) ausgleichen
-                    </p>
-                  </div>
-                )}
-
-                {/* Ausgleichs-Historie */}
-                {debtData.settlements.length > 0 && (
-                  <div>
-                    <p className="kicker text-muted mb-3">Ausgleiche</p>
-                    <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
-                      {debtData.settlements.slice(0, 5).map((s, i) => {
-                        const fromLabel = (CONTRIBUTORS.find(c => c.value === s.fromContributor)?.label ?? s.fromContributor).split(" ")[0]
-                        const toLabel = (CONTRIBUTORS.find(c => c.value === s.toContributor)?.label ?? s.toContributor).split(" ")[0]
-                        return (
-                          <div key={s.id} className={`flex items-center gap-3 px-5 py-3.5 ${i < Math.min(debtData.settlements.length, 5) - 1 ? "border-b border-rule/60" : ""}`}>
-                            <div className="w-7 h-7 rounded-full bg-pineSoft flex items-center justify-center flex-shrink-0">
-                              <Check className="w-3.5 h-3.5 text-pine" strokeWidth={3} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-ink">{fromLabel} → {toLabel}</p>
-                              <p className="text-xs text-muted">{new Date(s.date).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}</p>
-                            </div>
-                            <p className="amount text-[15px] text-pine flex-shrink-0">{formatCHF(s.amount)}</p>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
 
                 {/* Pro Person — wer hat ausgelegt */}
                 {byPerson.length > 0 && (
