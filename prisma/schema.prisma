@@ -71,15 +71,16 @@ model Category {
 }
 
 model Account {
-  id           String        @id @default(cuid())
-  name         String
-  icon         String        @default("🏦")
-  color        String        @default("#6366f1")
-  type         String        @default("personal")
-  dueDay       Int?
-  ownerName    String?
-  transactions Transaction[]
-  createdAt    DateTime      @default(now())
+  id                    String                 @id @default(cuid())
+  name                  String
+  icon                  String                 @default("🏦")
+  color                 String                 @default("#6366f1")
+  type                  String                 @default("personal")
+  dueDay                Int?
+  ownerName             String?
+  transactions          Transaction[]
+  recurringTransactions RecurringTransaction[]
+  createdAt             DateTime               @default(now())
 
   @@index([type])
 }
@@ -141,6 +142,8 @@ model RecurringTransaction {
   category          Category      @relation(fields: [categoryId], references: [id])
   userId            String
   user              User          @relation(fields: [userId], references: [id])
+  accountId         String?
+  account           Account?      @relation(fields: [accountId], references: [id])
   dayOfMonth        Int           @default(1)
   active            Boolean       @default(true)
   lastAppliedPeriod String?       // "YYYY-MM": bis zu diesem Monat angewendet — verhindert Wiederauferstehung gelöschter Buchungen

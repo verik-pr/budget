@@ -52,6 +52,7 @@ export async function applyDueRecurringTransactions(now = new Date()) {
               description: rule.name,
               categoryId: rule.categoryId,
               userId: rule.userId,
+              accountId: rule.accountId,
               recurringId: rule.id,
             },
           })

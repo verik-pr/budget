@@ -9,7 +9,11 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const rules = await prisma.recurringTransaction.findMany({
-    include: { category: true, user: { select: { id: true, name: true, color: true } } },
+    include: {
+      category: true,
+      user: { select: { id: true, name: true, color: true } },
+      account: { select: { id: true, name: true, icon: true, color: true } },
+    },
     orderBy: { dayOfMonth: "asc" },
   })
   return NextResponse.json(rules)
@@ -19,10 +23,11 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { name, amount, categoryId, dayOfMonth } = await req.json()
+  const { name, amount, categoryId, dayOfMonth, accountId } = await req.json()
   const parsedName = asNonEmptyString(name)
   const parsedAmount = asPositiveNumber(amount)
   const parsedDay = asIntegerInRange(dayOfMonth, 1, 31)
+  const parsedAccountId = typeof accountId === "string" && accountId ? accountId : null
   if (!parsedName || parsedAmount === null || !categoryId || parsedDay === null) {
     return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
   }
@@ -31,6 +36,10 @@ export async function POST(req: Request) {
   if (!currentUser) return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 })
   const category = await prisma.category.findUnique({ where: { id: categoryId } })
   if (!category) return NextResponse.json({ error: "Kategorie nicht gefunden" }, { status: 400 })
+  if (parsedAccountId) {
+    const account = await prisma.account.findUnique({ where: { id: parsedAccountId } })
+    if (!account) return NextResponse.json({ error: "Konto nicht gefunden" }, { status: 400 })
+  }
 
   const rule = await prisma.recurringTransaction.create({
     data: {
@@ -39,8 +48,13 @@ export async function POST(req: Request) {
       categoryId,
       dayOfMonth: parsedDay,
       userId: currentUser.id,
+      accountId: parsedAccountId,
     },
-    include: { category: true, user: { select: { id: true, name: true, color: true } } },
+    include: {
+      category: true,
+      user: { select: { id: true, name: true, color: true } },
+      account: { select: { id: true, name: true, icon: true, color: true } },
+    },
   })
   return NextResponse.json(rule)
 }

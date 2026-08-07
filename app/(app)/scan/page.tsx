@@ -3,8 +3,8 @@
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Camera, Check, Loader2, ScanLine, X, FileText, Receipt } from "lucide-react"
-import { CONTRIBUTORS, formatCHF, todayLocalISO } from "@/lib/utils"
+import { Camera, Check, Loader2, Pencil, ScanLine, X, FileText, Receipt } from "lucide-react"
+import { CONTRIBUTORS, formatCHF, parseAmount, todayLocalISO } from "@/lib/utils"
 import { useConfirm } from "@/components/confirm-sheet"
 
 type ScannedItem = {
@@ -49,6 +49,9 @@ export default function ScanPage() {
   const [saveError, setSaveError] = useState("")
   const [savedCount, setSavedCount] = useState(0)
   const [lastSaved, setLastSaved] = useState<{ merchant: string; total: number } | null>(null)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editAmount, setEditAmount] = useState("")
 
   const firstName = session?.user?.name?.split(" ")[0]?.toLowerCase() ?? ""
   const myContrib = CONTRIBUTORS.find(c => c.label.toLowerCase().startsWith(firstName)) ?? CONTRIBUTORS[0]
@@ -110,13 +113,35 @@ export default function ScanPage() {
   function toggleItem(i: number) { setItems(prev => prev.map((item, j) => j === i ? { ...item, excluded: !item.excluded } : item)) }
   function updateCategory(i: number, categoryId: string) { setItems(prev => prev.map((item, j) => j === i ? { ...item, categoryId } : item)) }
 
-  function setSplit(i: number, mode: "solo" | "half" | "full") {
-    setItems(prev => prev.map((item, j) => j !== i ? item : {
-      ...item,
+  function splitFields(mode: "solo" | "half" | "full") {
+    return {
       contributor: mode === "solo" ? "" : payer.value,
       sharedWith: mode === "solo" ? null : partner.value,
       sharedRatio: mode === "solo" ? null : mode === "half" ? 0.5 : 1.0,
-    }))
+    }
+  }
+
+  function setSplit(i: number, mode: "solo" | "half" | "full") {
+    setItems(prev => prev.map((item, j) => j !== i ? item : { ...item, ...splitFields(mode) }))
+  }
+
+  // Alle Posten auf einmal: Nur Zahler / 50/50 / Für Partner
+  function setAllSplits(mode: "solo" | "half" | "full") {
+    setItems(prev => prev.map(item => ({ ...item, ...splitFields(mode) })))
+  }
+
+  function startItemEdit(i: number) {
+    setEditingIndex(i)
+    setEditName(items[i].name)
+    setEditAmount(items[i].amount.toFixed(2))
+  }
+
+  function saveItemEdit(i: number) {
+    const amount = parseAmount(editAmount)
+    const name = editName.trim()
+    if (!name || !amount) return
+    setItems(prev => prev.map((item, j) => j === i ? { ...item, name, amount } : item))
+    setEditingIndex(null)
   }
 
   function getSplitMode(item: ScannedItem): "solo" | "half" | "full" {
@@ -317,19 +342,70 @@ export default function ScanPage() {
             )}
 
             <div>
-              <p className="kicker text-cream/40 mb-3">Posten — tippe zum Ausschliessen</p>
+              <p className="kicker text-cream/40 mb-3">Alle Posten teilen</p>
+              {(() => {
+                const activeModes = new Set(items.filter(it => !it.excluded).map(getSplitMode))
+                const allMode = activeModes.size === 1 ? [...activeModes][0] : null
+                return (
+                  <div className="flex gap-2 mb-4">
+                    {([
+                      { mode: "solo" as const, label: `Nur ${payer.label.split(" ")[0]}` },
+                      { mode: "half" as const, label: "Alle 50/50" },
+                      { mode: "full" as const, label: `Für ${partner.label.split(" ")[0]}` },
+                    ]).map(opt => (
+                      <button key={opt.mode} type="button"
+                        onClick={() => setAllSplits(opt.mode)}
+                        style={allMode === opt.mode && opt.mode !== "solo" ? { backgroundColor: partner.color } : {}}
+                        className={`flex-1 text-xs px-3 py-2.5 rounded-2xl font-bold transition-all ${
+                          allMode === opt.mode
+                            ? opt.mode === "solo" ? "bg-cream/30 text-cream" : "text-cream shadow-md"
+                            : "bg-cream/10 text-cream/50 border border-cream/15"
+                        }`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+
+              <p className="kicker text-cream/40 mb-3">Posten — tippe zum Ausschliessen, ✎ zum Korrigieren</p>
               <div className="space-y-2">
                 {items.map((item, i) => {
                   const mode = getSplitMode(item)
                   return (
                     <div key={i} className={`rounded-2xl overflow-hidden transition-all ${item.excluded ? "opacity-30" : ""}`}>
+                      {editingIndex === i ? (
+                        <div className="flex items-center gap-2 bg-cream/[0.07] px-3 py-2.5">
+                          <input value={editName} onChange={e => setEditName(e.target.value)}
+                            className="flex-1 min-w-0 bg-cream/10 border border-cream/20 rounded-xl px-3 py-2 text-sm text-cream focus:outline-none focus:border-cream/40" />
+                          <input value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                            inputMode="decimal"
+                            className="w-20 bg-cream/10 border border-cream/20 rounded-xl px-2 py-2 text-sm text-cream text-right tabular-nums focus:outline-none focus:border-cream/40" />
+                          <button type="button" onClick={() => saveItemEdit(i)}
+                            disabled={!editName.trim() || !parseAmount(editAmount)}
+                            className="text-[#7fc89e] disabled:opacity-30 p-1.5">
+                            <Check className="w-4 h-4" strokeWidth={3} />
+                          </button>
+                          <button type="button" onClick={() => setEditingIndex(null)} className="text-cream/40 p-1.5">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
                       <div className="flex items-center gap-3 bg-cream/[0.07] px-4 py-3 cursor-pointer active:bg-cream/[0.12]" onClick={() => toggleItem(i)}>
                         <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${item.excluded ? "border-cream/25" : "border-[#7fc89e] bg-[#7fc89e]"}`}>
                           {!item.excluded && <Check className="w-3 h-3 text-ink" strokeWidth={3} />}
                         </div>
                         <p className={`flex-1 text-sm font-semibold ${item.excluded ? "line-through text-cream/30" : "text-cream"}`}>{item.name}</p>
                         <p className={`text-sm font-bold tabular-nums ${item.excluded ? "text-cream/25" : "text-cream"}`}>CHF {item.amount.toFixed(2)}</p>
+                        {!item.excluded && (
+                          <button type="button"
+                            onClick={e => { e.stopPropagation(); startItemEdit(i) }}
+                            className="text-cream/35 hover:text-cream p-1 -mr-1">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
+                      )}
                       {!item.excluded && (
                         <>
                           <select value={item.categoryId} onChange={e => updateCategory(i, e.target.value)}
