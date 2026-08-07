@@ -33,10 +33,13 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey })
 
   let text: string
+  let truncated = false
   try {
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
+      // Lange Kassenzettel (30+ Posten) brauchen deutlich mehr als 1024 Tokens,
+      // sonst wird das JSON abgeschnitten -> "Ungültiges Format von KI"
+      max_tokens: 8192,
       messages: [{
         role: "user",
         content: [
@@ -77,13 +80,17 @@ Regeln:
     })
     const content = response.content.find(c => c.type === "text")
     text = content?.type === "text" ? content.text : ""
+    truncated = response.stop_reason === "max_tokens"
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unbekannter Fehler"
     return NextResponse.json({ error: `KI-Fehler: ${msg.slice(0, 120)}` }, { status: 502 })
   }
 
   const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) return NextResponse.json({ error: "Dokument konnte nicht gelesen werden" }, { status: 422 })
+  if (!jsonMatch) {
+    console.error("scan-receipt: kein JSON in KI-Antwort", text.slice(0, 300))
+    return NextResponse.json({ error: "Dokument konnte nicht gelesen werden" }, { status: 422 })
+  }
 
   let parsed: {
     documentType: string
@@ -96,7 +103,12 @@ Regeln:
   try {
     parsed = JSON.parse(jsonMatch[0])
   } catch {
-    return NextResponse.json({ error: "Ungültiges Format von KI" }, { status: 422 })
+    console.error("scan-receipt: JSON-Parse fehlgeschlagen", { truncated, tail: text.slice(-200) })
+    return NextResponse.json({
+      error: truncated
+        ? "Quittung zu lang für einen Scan — bitte in zwei Fotos aufteilen"
+        : "Ungültiges Format von KI — bitte nochmal scannen",
+    }, { status: 422 })
   }
   if (!["receipt", "invoice"].includes(parsed.documentType)) {
     return NextResponse.json({ error: "Ungültiger Dokumenttyp von KI" }, { status: 422 })
