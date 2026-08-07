@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { asNonEmptyString } from "@/lib/api-validation"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -32,4 +33,26 @@ export async function GET(req: Request) {
 
   const enriched = categories.map(c => ({ ...c, spent: spentByCat.get(c.id) ?? 0 }))
   return NextResponse.json(enriched)
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const body = await req.json()
+  const name = asNonEmptyString(body.name)
+  const icon = asNonEmptyString(body.icon) ?? "📦"
+  const type = body.type === "income" ? "income" : body.type === "expense" ? "expense" : null
+
+  if (!name || name.length > 40 || !type) {
+    return NextResponse.json({ error: "Ungültige Felder" }, { status: 400 })
+  }
+
+  const existing = await prisma.category.findFirst({
+    where: { name: { equals: name } },
+  })
+  if (existing) return NextResponse.json({ error: "Kategorie existiert bereits" }, { status: 409 })
+
+  const category = await prisma.category.create({ data: { name, icon, type } })
+  return NextResponse.json(category)
 }

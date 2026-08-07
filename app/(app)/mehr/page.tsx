@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { SignOutButton } from "./sign-out-button"
 import Link from "next/link"
-import { RefreshCw, Target, ChevronRight, Users, CreditCard, PiggyBank, Bell } from "lucide-react"
+import { RefreshCw, Target, ChevronRight, Users, CreditCard, PiggyBank, Bell, Tags } from "lucide-react"
 
 export default async function MehrPage() {
   const session = await getServerSession(authOptions)
@@ -30,6 +30,13 @@ export default async function MehrPage() {
               <PiggyBank className="w-4 h-4" style={{ color: "#22c55e" }} />
             </div>
             <span className="text-sm font-semibold text-ink flex-1">Budgets</span>
+            <ChevronRight className="w-4 h-4 text-faint" />
+          </Link>
+          <Link href="/kategorien" className="flex items-center gap-4 px-5 py-4 border-b border-rule/60">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#f9731620" }}>
+              <Tags className="w-4 h-4" style={{ color: "#f97316" }} />
+            </div>
+            <span className="text-sm font-semibold text-ink flex-1">Kategorien</span>
             <ChevronRight className="w-4 h-4 text-faint" />
           </Link>
           <Link href="/recurring" className="flex items-center gap-4 px-5 py-4 border-b border-rule/60">
