@@ -80,6 +80,23 @@ export default function TransactionsPage() {
     }
   }
 
+  async function editReceipt(receiptId: string, data: { merchant: string; date: string }) {
+    try {
+      const res = await fetch(`/api/receipts/${receiptId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error()
+      toast("Quittung aktualisiert")
+      fetchTransactions(false)
+      return true
+    } catch {
+      toast("Konnte nicht speichern", "error")
+      return false
+    }
+  }
+
   const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
   const lastDay = new Date(periodEnd.getTime() - 86400000)
   const periodLabel = `${periodStart.getDate()}. ${periodStart.toLocaleDateString("de-CH", { month: "short" })} – ${lastDay.getDate()}. ${lastDay.toLocaleDateString("de-CH", { month: "short", year: "numeric" })}`
@@ -157,6 +174,7 @@ export default function TransactionsPage() {
             transactions={visible}
             onDelete={deleteTransaction}
             onLightbox={path => setLightbox(path)}
+            onEditReceipt={editReceipt}
           />
         )}
       </div>

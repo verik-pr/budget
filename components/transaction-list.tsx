@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { formatCHF, formatDate, getContributorLabel } from "@/lib/utils"
-import { ChevronDown, ChevronUp, Pencil, Trash2, Image } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, Pencil, Trash2, Image, X } from "lucide-react"
 import Link from "next/link"
 
 export type TxItem = {
@@ -63,34 +63,82 @@ function ReceiptCard({
   group,
   onDelete,
   onLightbox,
+  onEditReceipt,
 }: {
   group: ReceiptGroup
   onDelete?: (id: string) => void
   onLightbox?: (path: string) => void
+  onEditReceipt?: (receiptId: string, data: { merchant: string; date: string }) => Promise<boolean>
 }) {
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editMerchant, setEditMerchant] = useState("")
+  const [editDate, setEditDate] = useState("")
+  const [savingEdit, setSavingEdit] = useState(false)
   const icons = [...new Set(group.items.map(i => i.category.icon))].slice(0, 3)
   const isExpense = group.items.every(i => i.category.type === "expense")
 
+  function startEdit() {
+    setEditMerchant(group.merchant)
+    setEditDate(new Date(group.date).toISOString().split("T")[0])
+    setEditing(true)
+  }
+
+  async function saveEdit() {
+    if (!onEditReceipt || !editMerchant.trim() || !editDate) return
+    setSavingEdit(true)
+    const ok = await onEditReceipt(group.receiptId, { merchant: editMerchant.trim(), date: editDate })
+    setSavingEdit(false)
+    if (ok) setEditing(false)
+  }
+
   return (
     <div>
-      <button
-        className="w-full flex items-center gap-3 px-4 py-4 active:bg-paper/60 transition-colors text-left"
-        onClick={() => setOpen(o => !o)}>
-        <div className="w-8 text-center text-xl leading-none flex-shrink-0">
-          {icons.length === 1 ? icons[0] : "🛒"}
+      {editing ? (
+        <div className="px-4 py-3 space-y-2">
+          <input value={editMerchant} onChange={e => setEditMerchant(e.target.value)}
+            placeholder="Titel der Quittung"
+            className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm font-semibold text-ink focus:outline-none focus:border-pine/50" />
+          <div className="flex items-center gap-2">
+            <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+              className="flex-1 bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-pine/50" />
+            <button type="button" onClick={saveEdit}
+              disabled={savingEdit || !editMerchant.trim() || !editDate}
+              className="text-pine disabled:opacity-30 p-1.5">
+              <Check className="w-4 h-4" strokeWidth={3} />
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="text-faint p-1.5">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-faint text-xs italic font-serif">Gilt für alle {group.items.length} Posten dieser Quittung.</p>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-ink truncate">{group.merchant}</p>
-          <p className="text-xs text-muted mt-0.5">{formatDate(group.date)} · {group.items.length} Posten</p>
-        </div>
-        <p className="amount text-[15px] text-ink flex-shrink-0">
-          {isExpense ? "−" : ""}{formatCHF(group.total)}
-        </p>
-        {open
-          ? <ChevronUp className="w-4 h-4 text-faint flex-shrink-0 ml-1" />
-          : <ChevronDown className="w-4 h-4 text-faint flex-shrink-0 ml-1" />}
-      </button>
+      ) : (
+      <div className="flex items-center">
+        <button
+          className="flex-1 min-w-0 flex items-center gap-3 px-4 py-4 active:bg-paper/60 transition-colors text-left"
+          onClick={() => setOpen(o => !o)}>
+          <div className="w-8 text-center text-xl leading-none flex-shrink-0">
+            {icons.length === 1 ? icons[0] : "🛒"}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-ink truncate">{group.merchant}</p>
+            <p className="text-xs text-muted mt-0.5">{formatDate(group.date)} · {group.items.length} Posten</p>
+          </div>
+          <p className="amount text-[15px] text-ink flex-shrink-0">
+            {isExpense ? "−" : ""}{formatCHF(group.total)}
+          </p>
+          {open
+            ? <ChevronUp className="w-4 h-4 text-faint flex-shrink-0 ml-1" />
+            : <ChevronDown className="w-4 h-4 text-faint flex-shrink-0 ml-1" />}
+        </button>
+        {onEditReceipt && (
+          <button type="button" onClick={startEdit} className="text-faint hover:text-pine p-1.5 mr-2 flex-shrink-0">
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      )}
 
       {open && (
         <div className="border-t border-rule/60 bg-paper/50">
@@ -130,10 +178,12 @@ export function TransactionList({
   transactions,
   onDelete,
   onLightbox,
+  onEditReceipt,
 }: {
   transactions: TxItem[]
   onDelete?: (id: string) => void
   onLightbox?: (path: string) => void
+  onEditReceipt?: (receiptId: string, data: { merchant: string; date: string }) => Promise<boolean>
 }) {
   const rows = groupTransactions(transactions)
 
@@ -146,7 +196,7 @@ export function TransactionList({
         if (row.kind === "group") {
           return (
             <div key={row.group.receiptId} className={!isLast ? "border-b border-rule/60" : ""}>
-              <ReceiptCard group={row.group} onDelete={onDelete} onLightbox={onLightbox} />
+              <ReceiptCard group={row.group} onDelete={onDelete} onLightbox={onLightbox} onEditReceipt={onEditReceipt} />
             </div>
           )
         }
