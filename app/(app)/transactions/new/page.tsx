@@ -27,7 +27,7 @@ export default function NewTransactionPage() {
   const [accountId, setAccountId] = useState("")
   const [accounts, setAccounts] = useState<Account[]>([])
 
-  // Zahler = gewählter "Von wem"-Contributor, sonst der eingeloggte User.
+  // Zahler = gewählter "Bezahlt von"-Contributor, sonst der eingeloggte User.
   // Splits nur zwischen Erik und Céline (nicht bei Eltern) und nur bei Ausgaben.
   const sessionContrib = contributorFromName(session?.user?.name ?? "")
   const payerValue = contributor || sessionContrib
@@ -37,6 +37,12 @@ export default function NewTransactionPage() {
   const payerFirst = (CONTRIBUTORS.find(c => c.value === payerValue)?.label ?? "Ich").split(" ")[0]
   const partnerFirst = partner.label.split(" ")[0]
   const previewAmount = parseAmount(amount)
+  const splitHint =
+    splitMode === "solo"
+      ? `${payerFirst} trägt die Kosten allein.`
+      : splitMode === "half"
+        ? `Ihr teilt 50/50 — ${partnerFirst} übernimmt ${previewAmount !== null ? formatCHF(previewAmount / 2) : "die Hälfte"}.`
+        : `${payerFirst} hat nur ausgelegt — ${partnerFirst} übernimmt ${previewAmount !== null ? formatCHF(previewAmount) : "den ganzen Betrag"}.`
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -51,6 +57,12 @@ export default function NewTransactionPage() {
     })
     fetch("/api/accounts").then(r => r.json()).then(setAccounts)
   }, [])
+
+  // Zahler vorbelegen: der eingeloggte User (statt unsichtbarem "leer = du selbst")
+  useEffect(() => {
+    const name = session?.user?.name
+    if (name) setContributor(prev => prev || contributorFromName(name))
+  }, [session])
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -235,34 +247,13 @@ export default function NewTransactionPage() {
             </div>
           </div>
 
-          {/* Konto */}
-          {accounts.length > 0 && (
-            <div>
-              <p className="kicker text-muted mb-3">Konto</p>
-              <div className="flex gap-2 flex-wrap">
-                {accounts.map(acc => (
-                  <button key={acc.id} type="button"
-                    onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
-                    style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97] ${
-                      accountId === acc.id ? "text-cream shadow-md" : "bg-card border border-rule text-muted"
-                    }`}>
-                    <span>{acc.icon}</span>
-                    <span>{acc.name}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-faint text-xs mt-2 italic font-serif">Leer lassen = kein Konto</p>
-            </div>
-          )}
-
-          {/* Von wem */}
+          {/* Bezahlt von */}
           <div>
-            <p className="kicker text-muted mb-3">Von wem</p>
+            <p className="kicker text-muted mb-3">{type === "expense" ? "Bezahlt von" : "Einnahme von"}</p>
             <div className="grid grid-cols-2 gap-2">
               {CONTRIBUTORS.map(c => (
                 <button key={c.value} type="button"
-                  onClick={() => setContributor(contributor === c.value ? "" : c.value)}
+                  onClick={() => setContributor(c.value)}
                   style={contributor === c.value ? { backgroundColor: c.color } : {}}
                   className={`rounded-2xl py-3 px-3 text-sm font-bold transition-all text-left active:scale-[0.97] ${
                     contributor === c.value ? "text-cream shadow-md" : "bg-card border border-rule text-muted"
@@ -271,13 +262,15 @@ export default function NewTransactionPage() {
                 </button>
               ))}
             </div>
-            <p className="text-faint text-xs mt-2 italic font-serif">Leer lassen = du selbst</p>
+            <p className="text-faint text-xs mt-2 italic font-serif">
+              {type === "expense" ? "Wer das Geld ausgegeben hat — egal von welchem Konto." : "Wessen Einnahme das ist."}
+            </p>
           </div>
 
-          {/* Teilen */}
+          {/* Kosten teilen */}
           {canSplit && (
             <div>
-              <p className="kicker text-muted mb-3">Teilen</p>
+              <p className="kicker text-muted mb-3">Kosten teilen</p>
               <div className="flex gap-2">
                 {([
                   { mode: "solo" as const, label: `Nur ${payerFirst}` },
@@ -296,14 +289,30 @@ export default function NewTransactionPage() {
                   </button>
                 ))}
               </div>
-              {splitMode !== "solo" && previewAmount !== null && (
-                <div className="flex justify-between mt-2 px-1">
-                  <p className="text-xs text-muted">{partnerFirst} schuldet</p>
-                  <p className="text-xs font-bold tabular-nums" style={{ color: partner.color }}>
-                    CHF {(previewAmount * (splitMode === "half" ? 0.5 : 1)).toFixed(2)}
-                  </p>
-                </div>
-              )}
+              <p className="text-faint text-xs mt-2 italic font-serif">{splitHint}</p>
+            </div>
+          )}
+
+          {/* Konto */}
+          {accounts.length > 0 && (
+            <div>
+              <p className="kicker text-muted mb-3">Konto</p>
+              <div className="flex gap-2 flex-wrap">
+                {accounts.map(acc => (
+                  <button key={acc.id} type="button"
+                    onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
+                    style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97] ${
+                      accountId === acc.id ? "text-cream shadow-md" : "bg-card border border-rule text-muted"
+                    }`}>
+                    <span>{acc.icon}</span>
+                    <span>{acc.name}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-faint text-xs mt-2 italic font-serif">
+                {type === "expense" ? "Optional: über welches Konto bezahlt wurde." : "Optional: auf welches Konto das Geld kam."}
+              </p>
             </div>
           )}
 
