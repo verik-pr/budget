@@ -8,6 +8,22 @@ import { asDateOnlyString, asNonEmptyString, asPositiveNumber } from "@/lib/api-
 const MAX_FILE_SIZE = 8 * 1024 * 1024
 const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"])
 
+// Schweizer Punkt-Daten deterministisch als TT.MM.JJJJ parsen («02.05.2026» =
+// 2. Mai). Die KI dreht bei der YYYY-MM-DD-Konvertierung sonst gelegentlich
+// Tag und Monat um (US-Lesart MM/DD) — deshalb hat dieses Parsing des exakt
+// abgedruckten Datums Vorrang vor dem konvertierten Datum der KI.
+function parseSwissDate(raw: string | null | undefined): string | null {
+  const m = raw?.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/)
+  if (!m) return null
+  const day = parseInt(m[1], 10)
+  const month = parseInt(m[2], 10)
+  const year = m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return null
+  const d = new Date(Date.UTC(year, month - 1, day))
+  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -56,7 +72,9 @@ Antworte NUR mit validem JSON, kein anderer Text:
   "documentType": "receipt" oder "invoice",
   "merchant": "Name des Ausstellers oder Unbekannt",
   "date": "YYYY-MM-DD",
+  "dateRaw": "Ausstellungsdatum EXAKT wie auf dem Dokument gedruckt, z.B. 02.05.2026, oder null",
   "dueDate": "YYYY-MM-DD oder null (nur bei Rechnungen mit Zahlungsfrist)",
+  "dueDateRaw": "Zahlungsfrist EXAKT wie gedruckt, oder null",
   "reference": "Referenz-/Rechnungsnummer oder null",
   "items": [
     { "name": "Beschreibung", "amount": 12.50, "category": "Kategoriename" }
@@ -68,6 +86,7 @@ Verfügbare Kategorien: ${categoryNames}
 Regeln:
 - documentType: "receipt" für Kassenbelege/Quittungen, "invoice" für Rechnungen/Bills
 - date: Ausstellungsdatum, falls nicht lesbar nimm ${today}
+- ACHTUNG Datumsformat: Schweizer Belege drucken TT.MM.JJJJ — «02.05.2026» ist der 2. Mai 2026, NICHT der 5. Februar
 - dueDate: Zahlungsfrist bei Rechnungen, sonst null
 - reference: Rechnungsnummer, Zahlungsreferenz, ESR-Nummer etc., sonst null
 - Beträge: immer positiv, 2 Dezimalstellen
@@ -96,7 +115,9 @@ Regeln:
     documentType: string
     merchant: string
     date: string
+    dateRaw?: string | null
     dueDate: string | null
+    dueDateRaw?: string | null
     reference: string | null
     items: { name: string; amount: number; category: string }[]
   }
@@ -113,8 +134,8 @@ Regeln:
   if (!["receipt", "invoice"].includes(parsed.documentType)) {
     return NextResponse.json({ error: "Ungültiger Dokumenttyp von KI" }, { status: 422 })
   }
-  parsed.date = asDateOnlyString(parsed.date) ?? today
-  parsed.dueDate = parsed.dueDate ? asDateOnlyString(parsed.dueDate) : null
+  parsed.date = parseSwissDate(parsed.dateRaw) ?? asDateOnlyString(parsed.date) ?? today
+  parsed.dueDate = parseSwissDate(parsed.dueDateRaw) ?? (parsed.dueDate ? asDateOnlyString(parsed.dueDate) : null)
   parsed.merchant = asNonEmptyString(parsed.merchant) ?? "Unbekannt"
   parsed.reference = asNonEmptyString(parsed.reference) ?? null
   if (!Array.isArray(parsed.items) || parsed.items.length === 0 || parsed.items.length > 100) {
