@@ -63,6 +63,8 @@ export default function ScanPage() {
     (payer.value === "erik" && c.value === "celine") ||
     (payer.value === "celine" && c.value === "erik")
   ) ?? CONTRIBUTORS[1]
+  const payerFirst = payer.label.split(" ")[0]
+  const partnerFirst = partner.label.split(" ")[0]
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -317,6 +319,7 @@ export default function ScanPage() {
                     </button>
                   ))}
                 </div>
+                <p className="text-cream/35 text-xs mt-2 italic font-serif">Wer das Geld ausgegeben hat.</p>
               </div>
               <div>
                 <p className="kicker text-cream/40 mb-3">Datum</p>
@@ -325,45 +328,38 @@ export default function ScanPage() {
               </div>
             </div>
 
-            {accounts.length > 1 && (
-              <div>
-                <p className="kicker text-cream/40 mb-3">Konto</p>
-                <div className="flex gap-2 flex-wrap">
-                  {accounts.map(acc => (
-                    <button key={acc.id} type="button"
-                      onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
-                      style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${accountId === acc.id ? "text-cream shadow-md" : "bg-cream/10 text-cream/55 border border-cream/15"}`}>
-                      <span>{acc.icon}</span><span>{acc.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div>
-              <p className="kicker text-cream/40 mb-3">Alle Posten teilen</p>
+              <p className="kicker text-cream/40 mb-3">Kosten teilen</p>
               {(() => {
                 const activeModes = new Set(items.filter(it => !it.excluded).map(getSplitMode))
                 const allMode = activeModes.size === 1 ? [...activeModes][0] : null
+                const bulkHint =
+                  activeItems.length === 0 ? "Keine Posten ausgewählt."
+                  : allMode === null ? "Posten sind unterschiedlich geteilt — unten pro Posten einstellbar."
+                  : allMode === "solo" ? `${payerFirst} trägt alle Posten allein.`
+                  : allMode === "half" ? `Ihr teilt 50/50 — ${partnerFirst} übernimmt ${formatCHF(activeTotal / 2)}.`
+                  : `${payerFirst} hat nur ausgelegt — ${partnerFirst} übernimmt ${formatCHF(activeTotal)}.`
                 return (
-                  <div className="flex gap-2 mb-4">
-                    {([
-                      { mode: "solo" as const, label: `Nur ${payer.label.split(" ")[0]}` },
-                      { mode: "half" as const, label: "Alle 50/50" },
-                      { mode: "full" as const, label: `Für ${partner.label.split(" ")[0]}` },
-                    ]).map(opt => (
-                      <button key={opt.mode} type="button"
-                        onClick={() => setAllSplits(opt.mode)}
-                        style={allMode === opt.mode && opt.mode !== "solo" ? { backgroundColor: partner.color } : {}}
-                        className={`flex-1 text-xs px-3 py-2.5 rounded-2xl font-bold transition-all ${
-                          allMode === opt.mode
-                            ? opt.mode === "solo" ? "bg-cream/30 text-cream" : "text-cream shadow-md"
-                            : "bg-cream/10 text-cream/50 border border-cream/15"
-                        }`}>
-                        {opt.label}
-                      </button>
-                    ))}
+                  <div className="mb-4">
+                    <div className="flex gap-2">
+                      {([
+                        { mode: "solo" as const, label: `Nur ${payerFirst}` },
+                        { mode: "half" as const, label: "Alle 50/50" },
+                        { mode: "full" as const, label: `Für ${partnerFirst}` },
+                      ]).map(opt => (
+                        <button key={opt.mode} type="button"
+                          onClick={() => setAllSplits(opt.mode)}
+                          style={allMode === opt.mode && opt.mode !== "solo" ? { backgroundColor: partner.color } : {}}
+                          className={`flex-1 text-xs px-3 py-2.5 rounded-2xl font-bold transition-all ${
+                            allMode === opt.mode
+                              ? opt.mode === "solo" ? "bg-cream/30 text-cream" : "text-cream shadow-md"
+                              : "bg-cream/10 text-cream/50 border border-cream/15"
+                          }`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-cream/35 text-xs mt-2 italic font-serif">{bulkHint}</p>
                   </div>
                 )
               })()}
@@ -415,9 +411,9 @@ export default function ScanPage() {
                           </select>
                           <div className="bg-cream/[0.04] border-t border-cream/10 px-4 py-2.5 flex gap-2">
                             {([
-                              { mode: "solo" as const, label: `Nur ${payer.label.split(" ")[0]}` },
+                              { mode: "solo" as const, label: `Nur ${payerFirst}` },
                               { mode: "half" as const, label: "50/50" },
-                              { mode: "full" as const, label: `Für ${partner.label.split(" ")[0]}` },
+                              { mode: "full" as const, label: `Für ${partnerFirst}` },
                             ]).map(opt => (
                               <button key={opt.mode} type="button"
                                 onClick={e => { e.stopPropagation(); setSplit(i, opt.mode) }}
@@ -429,7 +425,7 @@ export default function ScanPage() {
                           </div>
                           {item.sharedWith && (
                             <div className="bg-cream/[0.07] border-t border-cream/10 px-4 py-2 flex justify-between">
-                              <p className="text-xs text-cream/45">{partner.label.split(" ")[0]} schuldet</p>
+                              <p className="text-xs text-cream/45">{partnerFirst} übernimmt</p>
                               <p className="text-xs font-bold" style={{ color: partner.color }}>CHF {(item.amount * (item.sharedRatio ?? 0)).toFixed(2)}</p>
                             </div>
                           )}
@@ -440,6 +436,23 @@ export default function ScanPage() {
                 })}
               </div>
             </div>
+
+            {accounts.length > 1 && (
+              <div>
+                <p className="kicker text-cream/40 mb-3">Konto</p>
+                <div className="flex gap-2 flex-wrap">
+                  {accounts.map(acc => (
+                    <button key={acc.id} type="button"
+                      onClick={() => setAccountId(accountId === acc.id ? "" : acc.id)}
+                      style={accountId === acc.id ? { backgroundColor: acc.color } : {}}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${accountId === acc.id ? "text-cream shadow-md" : "bg-cream/10 text-cream/55 border border-cream/15"}`}>
+                      <span>{acc.icon}</span><span>{acc.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-cream/35 text-xs mt-2 italic font-serif">Optional: über welches Konto bezahlt wurde.</p>
+              </div>
+            )}
 
             <div>
               <p className="kicker text-cream/40 mb-2">Notiz</p>
