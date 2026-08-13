@@ -96,6 +96,33 @@ curl -X POST https://budget.venstein.ch/api/agent \
 
 ---
 
+## GET /api/agent/transactions
+
+Exportiert ALLE Buchungen (für Backups), inkl. Kategorie-, Konto- und User-Infos.
+
+```bash
+curl https://budget.venstein.ch/api/agent/transactions \
+  -H "Authorization: Bearer <KEY>"
+```
+
+**Response:** `{ "count": 123, "transactions": [ ... ] }`
+
+---
+
+## DELETE /api/agent/transactions?confirm=ALLE
+
+Löscht **alle** Buchungen (und die BudgetAlertSent-Merker). Ohne `?confirm=ALLE` → 400.
+Kategorien, Konten, Regeln, Sparziele und Rückstellungen bleiben erhalten.
+
+```bash
+curl -X DELETE "https://budget.venstein.ch/api/agent/transactions?confirm=ALLE" \
+  -H "Authorization: Bearer <KEY>"
+```
+
+**Response:** `{ "ok": true, "deleted": 123 }`
+
+---
+
 ## Bekannte Kategorien (Beispiele)
 
 | Name | Icon | Typ |
