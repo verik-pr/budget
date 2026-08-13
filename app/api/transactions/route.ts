@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { after, NextResponse } from "next/server"
 import { checkBudgetThresholds, notifyPartnerOfBooking } from "@/lib/push-triggers"
 import { asFiniteNumber, asNullableString, asValidDate } from "@/lib/api-validation"
+import { giftcardFactor } from "@/lib/utils"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -82,10 +83,16 @@ export async function POST(req: Request) {
   if (!category) return NextResponse.json({ error: "Kategorie nicht gefunden" }, { status: 400 })
   if (parsedAccountId && !account) return NextResponse.json({ error: "Konto nicht gefunden" }, { status: 400 })
 
+  // Geschenkkarten: eingegeben wird der Beleg-Betrag (nominal), gebucht der
+  // effektive Preis (× Rabattfaktor); Beleg-Betrag wandert in faceAmount
+  const isGiftcard = account?.type === "giftcard"
+  const factor = giftcardFactor(account)
+
   const transaction = await prisma.transaction.create({
     data: {
       date: parsedDate,
-      amount: parsedAmount,
+      amount: isGiftcard ? Math.round(parsedAmount * factor * 100) / 100 : parsedAmount,
+      ...(isGiftcard ? { faceAmount: parsedAmount } : {}),
       description: asNullableString(description),
       photoPath: asNullableString(photoPath),
       categoryId: parsedCategoryId,

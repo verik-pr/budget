@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkBudgetThresholds, notifyPartnerOfBooking } from "@/lib/push-triggers"
 import { asFiniteNumber, asNullableString, asPositiveNumber, asValidDate } from "@/lib/api-validation"
+import { giftcardFactor } from "@/lib/utils"
 
 type SaveItem = {
   amount: unknown
@@ -56,12 +57,13 @@ export async function POST(req: Request) {
     const dayEnd = new Date(dayStart.getTime() + 86400000)
     const sameDay = await prisma.transaction.findMany({
       where: { date: { gte: dayStart, lt: dayEnd }, receiptId: { not: null } },
-      select: { receiptId: true, receiptMerchant: true, amount: true },
+      select: { receiptId: true, receiptMerchant: true, amount: true, faceAmount: true },
     })
     const groups = new Map<string, { merchant: string | null; total: number }>()
     for (const t of sameDay) {
       const g = groups.get(t.receiptId!) ?? { merchant: t.receiptMerchant, total: 0 }
-      g.total += t.amount
+      // Vergleich auf Beleg-Beträgen: bei Geschenkkarten weicht amount (effektiv) ab
+      g.total += t.faceAmount ?? t.amount
       groups.set(t.receiptId!, g)
     }
     const wanted = receiptMerchant?.trim().toLowerCase() ?? null
@@ -83,6 +85,10 @@ export async function POST(req: Request) {
   }
 
   const receiptId = crypto.randomUUID()
+  // Geschenkkarten: Posten-Beträge sind Beleg-Beträge (nominal), gebucht wird
+  // der effektive Preis (× Rabattfaktor)
+  const isGiftcard = account?.type === "giftcard"
+  const factor = giftcardFactor(account)
   const prepared = items.map(item => {
     const amount = asPositiveNumber(item.amount)
     const categoryId = asNullableString(item.categoryId)
@@ -108,7 +114,8 @@ export async function POST(req: Request) {
     return prisma.transaction.create({
       data: {
         date,
-        amount: safeItem.amount,
+        amount: isGiftcard ? Math.round(safeItem.amount * factor * 100) / 100 : safeItem.amount,
+        ...(isGiftcard ? { faceAmount: safeItem.amount } : {}),
         description: safeItem.description,
         categoryId: safeItem.categoryId,
         userId: currentUser.id,

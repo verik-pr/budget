@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { asIntegerInRange, asNonEmptyString, asNullableString } from "@/lib/api-validation"
+import { asIntegerInRange, asNonEmptyString, asNullableString, asPositiveNumber } from "@/lib/api-validation"
 
-const ACCOUNT_TYPES = new Set(["personal", "shared", "credit"])
+const ACCOUNT_TYPES = new Set(["personal", "shared", "credit", "giftcard"])
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -13,14 +13,33 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const mine = searchParams.get("mine") === "true"
 
-  const accounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } })
+  const raw = await prisma.account.findMany({ orderBy: { createdAt: "asc" } })
+
+  // Geschenkkarten: Restguthaben (nominal) mitliefern — Ausgaben zehren es
+  // auf, Einnahmen (Rückerstattungen) füllen es wieder
+  const giftcardIds = raw.filter(a => a.type === "giftcard").map(a => a.id)
+  let accounts: (typeof raw[number] & { giftcardRemaining?: number })[] = raw
+  if (giftcardIds.length > 0) {
+    const txs = await prisma.transaction.findMany({
+      where: { accountId: { in: giftcardIds } },
+      select: { accountId: true, amount: true, faceAmount: true, category: { select: { type: true } } },
+    })
+    const used = new Map<string, number>()
+    for (const t of txs) {
+      const face = t.faceAmount ?? t.amount
+      used.set(t.accountId!, (used.get(t.accountId!) ?? 0) + (t.category.type === "income" ? -face : face))
+    }
+    accounts = raw.map(a => a.type === "giftcard"
+      ? { ...a, giftcardRemaining: Math.round(((a.giftcardFaceValue ?? 0) - (used.get(a.id) ?? 0)) * 100) / 100 }
+      : a)
+  }
 
   if (mine) {
     const firstName = session.user.name?.split(" ")[0]?.toLowerCase() ?? ""
     const personal = accounts.find(a => a.type === "personal" && a.name.toLowerCase().includes(firstName))
     // credit-Konten mitliefern: der Planung-Tab zeigt Kreditkarten-Salden daraus
-    const visible = accounts.filter(a => a.type === "shared" || a.type === "credit" || a.id === personal?.id)
-    const defaultId = personal?.id ?? visible.find(a => a.type !== "credit")?.id ?? null
+    const visible = accounts.filter(a => a.type === "shared" || a.type === "credit" || a.type === "giftcard" || a.id === personal?.id)
+    const defaultId = personal?.id ?? visible.find(a => a.type !== "credit" && a.type !== "giftcard")?.id ?? null
     return NextResponse.json({ accounts: visible, defaultId })
   }
 
@@ -30,11 +49,16 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const { name, icon, color, type, dueDay, ownerName } = await req.json()
+  const { name, icon, color, type, dueDay, ownerName, giftcardFaceValue, giftcardPrice } = await req.json()
   const parsedName = asNonEmptyString(name)
   const parsedDueDay = dueDay === null || dueDay === undefined || dueDay === "" ? null : asIntegerInRange(dueDay, 1, 31)
   if (!parsedName || !ACCOUNT_TYPES.has(type) || parsedDueDay === null && dueDay !== null && dueDay !== undefined && dueDay !== "") {
     return NextResponse.json({ error: "Ungültige Felder" }, { status: 400 })
+  }
+  const parsedFace = asPositiveNumber(giftcardFaceValue)
+  const parsedPrice = asPositiveNumber(giftcardPrice)
+  if (type === "giftcard" && (!parsedFace || !parsedPrice || parsedPrice > parsedFace)) {
+    return NextResponse.json({ error: "Guthaben und Kaufpreis nötig (Preis ≤ Guthaben)" }, { status: 400 })
   }
   const account = await prisma.account.create({
     data: {
@@ -44,6 +68,7 @@ export async function POST(req: Request) {
       type,
       dueDay: parsedDueDay,
       ownerName: asNullableString(ownerName),
+      ...(type === "giftcard" ? { giftcardFaceValue: parsedFace, giftcardPrice: parsedPrice } : {}),
     },
   })
   return NextResponse.json(account)

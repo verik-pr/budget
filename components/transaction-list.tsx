@@ -13,6 +13,7 @@ export type TxItem = {
   photoPath?: string | null
   contributor: string | null
   recurringId?: string | null
+  faceAmount?: number | null
   receiptId: string | null
   receiptMerchant: string | null
   note: string | null
@@ -123,7 +124,13 @@ function ReceiptCard({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-ink truncate">{group.merchant}</p>
-            <p className="text-xs text-muted mt-0.5">{formatDate(group.date)} · {group.items.length} Posten</p>
+            <p className="text-xs text-muted mt-0.5">
+              {formatDate(group.date)} · {group.items.length} Posten
+              {(() => {
+                const faceTotal = group.items.reduce((s, i) => s + (i.faceAmount ?? i.amount), 0)
+                return Math.abs(faceTotal - group.total) >= 0.005 ? <span> · 🎁 Beleg {formatCHF(faceTotal)}</span> : null
+              })()}
+            </p>
           </div>
           <p className="amount text-[15px] text-ink flex-shrink-0">
             {isExpense ? "−" : ""}{formatCHF(group.total)}
@@ -213,6 +220,7 @@ export function TransactionList({
                 <p className="text-xs text-muted mt-0.5 truncate">
                   {formatDate(t.date)} · {getContributorLabel(t.contributor, t.user.name)}
                   {t.account && <span style={{ color: t.account.color }}> · {t.account.icon} {t.account.name}</span>}
+                  {t.faceAmount != null && Math.abs(t.faceAmount - t.amount) >= 0.005 && <span> · 🎁 Beleg {formatCHF(t.faceAmount)}</span>}
                 </p>
                 {t.note && <p className="text-xs text-muted italic mt-0.5 truncate">📝 {t.note}</p>}
               </div>

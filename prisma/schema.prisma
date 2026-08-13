@@ -78,6 +78,8 @@ model Account {
   type                  String                 @default("personal")
   dueDay                Int?
   ownerName             String?
+  giftcardFaceValue     Float?                 // Geschenkkarten: Guthaben nominal (z.B. 1000)
+  giftcardPrice         Float?                 // Geschenkkarten: bezahlter Preis (z.B. 900)
   transactions          Transaction[]
   recurringTransactions RecurringTransaction[]
   createdAt             DateTime               @default(now())
@@ -112,6 +114,7 @@ model Transaction {
   recurring   RecurringTransaction? @relation(fields: [recurringId], references: [id])
   sharedWith      String?
   sharedRatio     Float?
+  faceAmount      Float?               // Beleg-Betrag nominal bei Geschenkkarten (amount = faceAmount × Rabattfaktor)
   note            String?
   receiptId       String?
   receiptMerchant String?

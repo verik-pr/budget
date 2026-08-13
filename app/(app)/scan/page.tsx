@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Camera, Check, Loader2, Pencil, ScanLine, X, FileText, Receipt } from "lucide-react"
-import { CONTRIBUTORS, formatCHF, parseAmount, todayLocalISO } from "@/lib/utils"
+import { CONTRIBUTORS, formatCHF, giftcardFactor, parseAmount, todayLocalISO } from "@/lib/utils"
 import { useConfirm } from "@/components/confirm-sheet"
 
 type ScannedItem = {
@@ -41,7 +41,10 @@ export default function ScanPage() {
   const [items, setItems] = useState<ScannedItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [accountId, setAccountId] = useState("")
-  const [accounts, setAccounts] = useState<{ id: string; name: string; icon: string; color: string }[]>([])
+  const [accounts, setAccounts] = useState<{
+    id: string; name: string; icon: string; color: string; type: string
+    giftcardFaceValue?: number | null; giftcardPrice?: number | null; giftcardRemaining?: number
+  }[]>([])
   const [note, setNote] = useState("")
   const [date, setDate] = useState("")
   const [saving, setSaving] = useState(false)
@@ -217,6 +220,14 @@ export default function ScanPage() {
   const activeItems = items.filter(i => !i.excluded)
   const activeTotal = activeItems.reduce((s, i) => s + i.amount, 0)
   const isInvoice = result?.documentType === "invoice"
+  const selectedAccount = accounts.find(a => a.id === accountId)
+  const gcFactor = giftcardFactor(selectedAccount)
+  const giftcardHint = selectedAccount?.type === "giftcard"
+    ? `🎁 Guthaben-Karte · Rest ${formatCHF(selectedAccount.giftcardRemaining ?? 0)}` +
+      (gcFactor < 1
+        ? ` · ${Math.round((1 - gcFactor) * 100)}% Rabatt — ${formatCHF(activeTotal)} kosten effektiv ${formatCHF(activeTotal * gcFactor)}`
+        : "")
+    : null
 
   return (
     <div className="max-w-lg mx-auto min-h-screen ink-panel">
@@ -450,7 +461,7 @@ export default function ScanPage() {
                     </button>
                   ))}
                 </div>
-                <p className="text-cream/35 text-xs mt-2 italic font-serif">Optional: über welches Konto bezahlt wurde.</p>
+                <p className="text-cream/35 text-xs mt-2 italic font-serif">{giftcardHint ?? "Optional: über welches Konto bezahlt wurde."}</p>
               </div>
             )}
 

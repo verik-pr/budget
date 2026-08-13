@@ -46,6 +46,13 @@ export function todayLocalISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
+// Rabattfaktor einer Geschenkkarte (900 bezahlt / 1000 Guthaben = 0.9).
+// 1 für alle anderen Konten — Buchungen bleiben dann unverändert.
+export function giftcardFactor(acc: { type: string; giftcardFaceValue?: number | null; giftcardPrice?: number | null } | null | undefined): number {
+  if (!acc || acc.type !== "giftcard" || !acc.giftcardFaceValue || !acc.giftcardPrice) return 1
+  return acc.giftcardPrice / acc.giftcardFaceValue
+}
+
 // Offener Kreditkarten-Saldo: Ausgaben minus Zahlungen (Einnahmen-Buchungen)
 export function creditCardBalanceOf(txs: { amount: number; category: { type: string } }[]): number {
   return txs.reduce((s, t) => s + (t.category.type === "income" ? -t.amount : t.amount), 0)

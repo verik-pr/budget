@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { asFiniteNumber, asNullableString, asValidDate } from "@/lib/api-validation"
+import { giftcardFactor } from "@/lib/utils"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -24,7 +25,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params
   const body = await req.json()
   const { amount, categoryId, description, date, contributor, accountId, sharedWith, sharedRatio } = body
-  const existing = await prisma.transaction.findUnique({ where: { id }, select: { id: true } })
+  const existing = await prisma.transaction.findUnique({
+    where: { id },
+    select: { id: true, accountId: true, amount: true, faceAmount: true },
+  })
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const parsedAmount = amount !== undefined ? asFiniteNumber(amount) : undefined
@@ -45,17 +49,33 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   if (categoryId !== undefined && !parsedCategoryId) return NextResponse.json({ error: "Ungültige Kategorie" }, { status: 400 })
 
-  const [category, account] = await Promise.all([
+  // Für die Geschenkkarten-Umrechnung zählt das Konto NACH dem Update
+  const targetAccountId = parsedAccountId !== undefined ? parsedAccountId : existing.accountId
+  const [category, account, targetAccount] = await Promise.all([
     parsedCategoryId ? prisma.category.findUnique({ where: { id: parsedCategoryId } }) : Promise.resolve(null),
     parsedAccountId ? prisma.account.findUnique({ where: { id: parsedAccountId } }) : Promise.resolve(null),
+    targetAccountId ? prisma.account.findUnique({ where: { id: targetAccountId } }) : Promise.resolve(null),
   ])
   if (categoryId !== undefined && !category) return NextResponse.json({ error: "Kategorie nicht gefunden" }, { status: 400 })
   if (parsedAccountId && !account) return NextResponse.json({ error: "Konto nicht gefunden" }, { status: 400 })
 
+  // Geschenkkarten: Client bearbeitet immer den Beleg-Betrag (nominal);
+  // gespeichert wird der effektive Preis (× Rabattfaktor). Auch ein reiner
+  // Konto-Wechsel rechnet den Betrag entsprechend um bzw. zurück.
+  const isGiftcard = targetAccount?.type === "giftcard"
+  const factor = giftcardFactor(targetAccount)
+  const amountTouched = (parsedAmount !== undefined && parsedAmount !== null) || parsedAccountId !== undefined
+  const nominal = parsedAmount !== undefined && parsedAmount !== null
+    ? parsedAmount
+    : existing.faceAmount ?? existing.amount
+
   const transaction = await prisma.transaction.update({
     where: { id },
     data: {
-      ...(parsedAmount !== undefined && parsedAmount !== null && { amount: parsedAmount }),
+      ...(amountTouched && {
+        amount: isGiftcard ? Math.round(nominal * factor * 100) / 100 : nominal,
+        faceAmount: isGiftcard ? nominal : null,
+      }),
       ...(parsedCategoryId ? { categoryId: parsedCategoryId } : {}),
       ...(description !== undefined && { description: asNullableString(description) }),
       ...(parsedDate ? { date: parsedDate } : {}),

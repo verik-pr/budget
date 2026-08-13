@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Camera, X, Check, ScanLine, ArrowLeft, Sparkles } from "lucide-react"
 import Link from "next/link"
-import { CONTRIBUTORS, contributorFromName, formatCHF, parseAmount, todayLocalISO } from "@/lib/utils"
+import { CONTRIBUTORS, contributorFromName, formatCHF, giftcardFactor, parseAmount, todayLocalISO } from "@/lib/utils"
 import { useToast } from "@/components/toast"
 
 type Category = { id: string; name: string; icon: string; type: string }
-type Account = { id: string; name: string; icon: string; color: string; type: string }
+type Account = {
+  id: string; name: string; icon: string; color: string; type: string
+  giftcardFaceValue?: number | null; giftcardPrice?: number | null; giftcardRemaining?: number
+}
 
 export default function NewTransactionPage() {
   const router = useRouter()
@@ -43,6 +46,14 @@ export default function NewTransactionPage() {
       : splitMode === "half"
         ? `Ihr teilt 50/50 — ${partnerFirst} übernimmt ${previewAmount !== null ? formatCHF(previewAmount / 2) : "die Hälfte"}.`
         : `${payerFirst} hat nur ausgelegt — ${partnerFirst} übernimmt ${previewAmount !== null ? formatCHF(previewAmount) : "den ganzen Betrag"}.`
+  const selectedAccount = accounts.find(a => a.id === accountId)
+  const gcFactor = giftcardFactor(selectedAccount)
+  const giftcardHint = selectedAccount?.type === "giftcard"
+    ? `🎁 Guthaben-Karte · Rest ${formatCHF(selectedAccount.giftcardRemaining ?? 0)}` +
+      (gcFactor < 1
+        ? ` · ${Math.round((1 - gcFactor) * 100)}% Rabatt${previewAmount !== null ? ` — ${formatCHF(previewAmount)} kosten effektiv ${formatCHF(previewAmount * gcFactor)}` : ""}`
+        : "")
+    : null
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -311,7 +322,7 @@ export default function NewTransactionPage() {
                 ))}
               </div>
               <p className="text-faint text-xs mt-2 italic font-serif">
-                {type === "expense" ? "Optional: über welches Konto bezahlt wurde." : "Optional: auf welches Konto das Geld kam."}
+                {giftcardHint ?? (type === "expense" ? "Optional: über welches Konto bezahlt wurde." : "Optional: auf welches Konto das Geld kam.")}
               </p>
             </div>
           )}
