@@ -16,15 +16,22 @@ type Rule = {
   amount: number
   dayOfMonth: number
   active: boolean
+  startMonth: string | null
+  endMonth: string | null
   category: Category
   user: { name: string; color: string }
   account: Account | null
 }
 
+function currentMonthKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+}
+
 function RuleForm({ categories, accounts, onSave, onCancel }: {
   categories: Category[]
   accounts: Account[]
-  onSave: (data: { name: string; amount: string; categoryId: string; dayOfMonth: string; accountId: string | null }) => Promise<void>
+  onSave: (data: { name: string; amount: string; categoryId: string; dayOfMonth: string; accountId: string | null; startMonth: string | null; endMonth: string | null }) => Promise<void>
   onCancel: () => void
 }) {
   const [type, setType] = useState<"expense" | "income">("expense")
@@ -33,6 +40,8 @@ function RuleForm({ categories, accounts, onSave, onCancel }: {
   const [categoryId, setCategoryId] = useState("")
   const [accountId, setAccountId] = useState("")
   const [dayOfMonth, setDayOfMonth] = useState("1")
+  const [startMonth, setStartMonth] = useState(currentMonthKey())
+  const [endMonth, setEndMonth] = useState("")
   const [saving, setSaving] = useState(false)
 
   const filtered = categories.filter(c => c.type === type)
@@ -46,7 +55,7 @@ function RuleForm({ categories, accounts, onSave, onCancel }: {
   async function submit() {
     if (!name || !amount || !categoryId) return
     setSaving(true)
-    await onSave({ name, amount, categoryId, dayOfMonth, accountId: accountId || null })
+    await onSave({ name, amount, categoryId, dayOfMonth, accountId: accountId || null, startMonth: startMonth || null, endMonth: endMonth || null })
     setSaving(false)
   }
 
@@ -81,6 +90,19 @@ function RuleForm({ categories, accounts, onSave, onCancel }: {
               className="w-8 bg-transparent text-sm text-ink text-center focus:outline-none" />
             <span className="text-muted text-xs">. des Mt.</span>
           </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <p className="text-muted text-xs mb-1">Ab Monat</p>
+          <input type="month" value={startMonth} onChange={e => setStartMonth(e.target.value)}
+            className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-pine/50" />
+        </div>
+        <div className="flex-1">
+          <p className="text-muted text-xs mb-1">Bis (optional)</p>
+          <input type="month" value={endMonth} min={startMonth || undefined} onChange={e => setEndMonth(e.target.value)}
+            className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-pine/50" />
         </div>
       </div>
 
@@ -149,7 +171,7 @@ export default function RecurringPage() {
     })
   }, [])
 
-  async function addRule(data: { name: string; amount: string; categoryId: string; dayOfMonth: string; accountId: string | null }) {
+  async function addRule(data: { name: string; amount: string; categoryId: string; dayOfMonth: string; accountId: string | null; startMonth: string | null; endMonth: string | null }) {
     const parsed = parseAmount(data.amount)
     if (!parsed) {
       toast("Ungültiger Betrag", "error")
@@ -161,13 +183,16 @@ export default function RecurringPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...data, amount: parsed }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error)
+      }
       const rule = await res.json()
       setRules(r => [...r, rule])
       setShowForm(false)
       toast("Regel angelegt")
-    } catch {
-      toast("Konnte nicht speichern", "error")
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Konnte nicht speichern", "error")
     }
   }
 
@@ -204,6 +229,28 @@ export default function RecurringPage() {
     } catch {
       setRules(backup)
       toast("Konnte Konto nicht ändern", "error")
+    }
+  }
+
+  async function setRuleMonth(id: string, field: "startMonth" | "endMonth", value: string) {
+    const backup = rules
+    setRules(rs => rs.map(r => r.id === id ? { ...r, [field]: value || null } : r))
+    try {
+      const res = await fetch(`/api/recurring/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value || null }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error)
+      }
+      const updated = await res.json()
+      setRules(rs => rs.map(r => r.id === id ? updated : r))
+      toast("Laufzeit aktualisiert")
+    } catch (e) {
+      setRules(backup)
+      toast(e instanceof Error && e.message ? e.message : "Konnte Laufzeit nicht ändern", "error")
     }
   }
 
@@ -252,9 +299,11 @@ export default function RecurringPage() {
           </p>
         ) : (
           <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
-            {rules.map((rule, i) => (
+            {rules.map((rule, i) => {
+              const ended = rule.endMonth != null && rule.endMonth < currentMonthKey()
+              return (
               <div key={rule.id}
-                className={`flex items-center gap-4 px-5 py-4 ${!rule.active ? "opacity-50" : ""} ${i < rules.length - 1 ? "border-b border-rule/60" : ""}`}>
+                className={`flex items-center gap-4 px-5 py-4 ${!rule.active || ended ? "opacity-50" : ""} ${i < rules.length - 1 ? "border-b border-rule/60" : ""}`}>
                 <span className="text-xl w-7 text-center flex-shrink-0">{rule.category.icon}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-ink truncate">{rule.name}</p>
@@ -275,16 +324,31 @@ export default function RecurringPage() {
                       ))}
                     </select>
                   )}
+                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                    <input type="month" value={rule.startMonth ?? ""}
+                      onChange={e => setRuleMonth(rule.id, "startMonth", e.target.value)}
+                      className="bg-paper border border-rule rounded-lg px-1.5 py-1 text-[11px] text-muted focus:outline-none focus:border-pine/50" />
+                    <span className="text-faint text-[11px]">bis</span>
+                    <input type="month" value={rule.endMonth ?? ""} min={rule.startMonth ?? undefined}
+                      onChange={e => setRuleMonth(rule.id, "endMonth", e.target.value)}
+                      className="bg-paper border border-rule rounded-lg px-1.5 py-1 text-[11px] text-muted focus:outline-none focus:border-pine/50" />
+                    {rule.endMonth ? (
+                      <button onClick={() => setRuleMonth(rule.id, "endMonth", "")}
+                        className="text-faint hover:text-blood text-xs px-1" title="Ende entfernen">✕</button>
+                    ) : (
+                      <span className="text-faint text-[11px] italic">offen</span>
+                    )}
+                  </div>
                 </div>
-                <button onClick={() => toggleRule(rule.id, rule.active)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded-lg ${rule.active ? "bg-pineSoft text-pine" : "bg-paper border border-rule text-faint"}`}>
-                  {rule.active ? "AKTIV" : "PAUSE"}
+                <button onClick={() => toggleRule(rule.id, rule.active)} disabled={ended}
+                  className={`text-[10px] font-bold px-2 py-1 rounded-lg ${ended ? "bg-paper border border-rule text-faint" : rule.active ? "bg-pineSoft text-pine" : "bg-paper border border-rule text-faint"}`}>
+                  {ended ? "VORBEI" : rule.active ? "AKTIV" : "PAUSE"}
                 </button>
                 <button onClick={() => deleteRule(rule.id)} className="text-faint hover:text-blood p-1">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

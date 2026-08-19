@@ -150,6 +150,8 @@ model RecurringTransaction {
   account           Account?      @relation(fields: [accountId], references: [id])
   dayOfMonth        Int           @default(1)
   active            Boolean       @default(true)
+  startMonth        String?       // "YYYY-MM": erste Anwendung in diesem Monat (null = ab Erstellung)
+  endMonth          String?       // "YYYY-MM": letzte Anwendung in diesem Monat, inklusiv (null = unbegrenzt)
   lastAppliedPeriod String?       // "YYYY-MM": bis zu diesem Monat angewendet — verhindert Wiederauferstehung gelöschter Buchungen
   transactions      Transaction[]
   createdAt         DateTime      @default(now())

@@ -42,3 +42,7 @@ export function asDateOnlyString(value: unknown): string | null {
   const date = new Date(`${value}T00:00:00`)
   return Number.isNaN(date.getTime()) ? null : value
 }
+
+export function asMonthString(value: unknown): string | null {
+  return typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : null
+}

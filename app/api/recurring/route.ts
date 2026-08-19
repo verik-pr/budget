@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
-import { asIntegerInRange, asNonEmptyString, asPositiveNumber } from "@/lib/api-validation"
+import { asIntegerInRange, asMonthString, asNonEmptyString, asPositiveNumber } from "@/lib/api-validation"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -23,13 +23,21 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { name, amount, categoryId, dayOfMonth, accountId } = await req.json()
+  const { name, amount, categoryId, dayOfMonth, accountId, startMonth, endMonth } = await req.json()
   const parsedName = asNonEmptyString(name)
   const parsedAmount = asPositiveNumber(amount)
   const parsedDay = asIntegerInRange(dayOfMonth, 1, 31)
   const parsedAccountId = typeof accountId === "string" && accountId ? accountId : null
+  const parsedStart = startMonth ? asMonthString(startMonth) : null
+  const parsedEnd = endMonth ? asMonthString(endMonth) : null
   if (!parsedName || parsedAmount === null || !categoryId || parsedDay === null) {
     return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 })
+  }
+  if ((startMonth && !parsedStart) || (endMonth && !parsedEnd)) {
+    return NextResponse.json({ error: "Ungültiger Monat" }, { status: 400 })
+  }
+  if (parsedStart && parsedEnd && parsedEnd < parsedStart) {
+    return NextResponse.json({ error: "Ende liegt vor dem Start" }, { status: 400 })
   }
 
   const currentUser = await prisma.user.findUnique({ where: { email: session.user.email! } })
@@ -49,6 +57,8 @@ export async function POST(req: Request) {
       dayOfMonth: parsedDay,
       userId: currentUser.id,
       accountId: parsedAccountId,
+      startMonth: parsedStart,
+      endMonth: parsedEnd,
     },
     include: {
       category: true,

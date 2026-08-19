@@ -32,6 +32,11 @@ export async function applyDueRecurringTransactions(now = new Date()) {
       const periodKey = periodKeyOf(monthRef)
       if (rule.lastAppliedPeriod && rule.lastAppliedPeriod >= periodKey) continue
       if (rule.createdAt > new Date(monthRef.getFullYear(), monthRef.getMonth() + 1, 1)) continue
+      // Laufzeit: vor dem Startmonat bzw. nach dem Endmonat (inklusiv) nichts
+      // buchen. lastAppliedPeriod bleibt dabei unberührt, damit der Startmonat
+      // später normal angewendet wird ("YYYY-MM" vergleicht lexikografisch).
+      if (rule.startMonth && periodKey < rule.startMonth) continue
+      if (rule.endMonth && periodKey > rule.endMonth) continue
 
       const dueDate = dueDateForMonth(monthRef, rule.dayOfMonth)
       if (dueDate > now) continue
