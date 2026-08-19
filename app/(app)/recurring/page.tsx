@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { formatCHF, parseAmount } from "@/lib/utils"
-import { ArrowLeft, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from "lucide-react"
 import { useConfirm } from "@/components/confirm-sheet"
 import { SkeletonList } from "@/components/skeleton"
 import { useToast } from "@/components/toast"
@@ -157,6 +157,11 @@ export default function RecurringPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editAmount, setEditAmount] = useState("")
+  const [editDay, setEditDay] = useState("1")
+  const [editCategoryId, setEditCategoryId] = useState("")
 
   useEffect(() => {
     Promise.all([
@@ -232,6 +237,44 @@ export default function RecurringPage() {
     }
   }
 
+  function startRuleEdit(rule: Rule) {
+    setEditingId(rule.id)
+    setEditName(rule.name)
+    setEditAmount(rule.amount.toFixed(2))
+    setEditDay(String(rule.dayOfMonth))
+    setEditCategoryId(rule.category.id)
+  }
+
+  async function saveRuleEdit(id: string) {
+    const parsed = parseAmount(editAmount)
+    const day = parseInt(editDay, 10)
+    if (!editName.trim() || !parsed) {
+      toast("Name und Betrag prüfen", "error")
+      return
+    }
+    if (!Number.isInteger(day) || day < 1 || day > 31) {
+      toast("Ungültiger Tag (1–31)", "error")
+      return
+    }
+    try {
+      const res = await fetch(`/api/recurring/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName.trim(), amount: parsed, dayOfMonth: day, categoryId: editCategoryId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error)
+      }
+      const updated = await res.json()
+      setRules(rs => rs.map(r => r.id === id ? updated : r))
+      setEditingId(null)
+      toast("Regel aktualisiert — gilt für künftige Buchungen")
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Konnte nicht speichern", "error")
+    }
+  }
+
   async function setRuleMonth(id: string, field: "startMonth" | "endMonth", value: string) {
     const backup = rules
     setRules(rs => rs.map(r => r.id === id ? { ...r, [field]: value || null } : r))
@@ -301,6 +344,42 @@ export default function RecurringPage() {
           <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
             {rules.map((rule, i) => {
               const ended = rule.endMonth != null && rule.endMonth < currentMonthKey()
+              if (editingId === rule.id) {
+                return (
+                  <div key={rule.id} className={`px-5 py-4 space-y-2 ${i < rules.length - 1 ? "border-b border-rule/60" : ""}`}>
+                    <input value={editName} onChange={e => setEditName(e.target.value)}
+                      placeholder="Name der Regel"
+                      className="w-full bg-paper border border-rule rounded-xl px-3 py-2 text-sm font-semibold text-ink focus:outline-none focus:border-pine/50" />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                        inputMode="decimal" placeholder="0.00"
+                        className="w-24 bg-paper border border-rule rounded-xl px-3 py-2 text-sm text-ink text-right tabular-nums focus:outline-none focus:border-pine/50" />
+                      <span className="text-muted text-xs">CHF, am</span>
+                      <input value={editDay} onChange={e => setEditDay(e.target.value)}
+                        inputMode="numeric"
+                        className="w-12 bg-paper border border-rule rounded-xl px-2 py-2 text-sm text-ink text-center focus:outline-none focus:border-pine/50" />
+                      <span className="text-muted text-xs">. des Monats</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select value={editCategoryId} onChange={e => setEditCategoryId(e.target.value)}
+                        className="flex-1 min-w-0 bg-paper border border-rule rounded-xl px-2 py-2 text-sm text-ink focus:outline-none focus:border-pine/50">
+                        {categories.filter(c => c.type === rule.category.type).map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                        ))}
+                      </select>
+                      <button type="button" onClick={() => saveRuleEdit(rule.id)}
+                        disabled={!editName.trim() || !editAmount}
+                        className="text-pine disabled:opacity-30 p-1.5">
+                        <Check className="w-4 h-4" strokeWidth={3} />
+                      </button>
+                      <button type="button" onClick={() => setEditingId(null)} className="text-faint p-1.5">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-faint text-xs italic font-serif">Gilt für künftige Buchungen — bestehende bleiben unverändert.</p>
+                  </div>
+                )
+              }
               return (
               <div key={rule.id}
                 className={`flex items-center gap-4 px-5 py-4 ${!rule.active || ended ? "opacity-50" : ""} ${i < rules.length - 1 ? "border-b border-rule/60" : ""}`}>
@@ -343,6 +422,9 @@ export default function RecurringPage() {
                 <button onClick={() => toggleRule(rule.id, rule.active)} disabled={ended}
                   className={`text-[10px] font-bold px-2 py-1 rounded-lg ${ended ? "bg-paper border border-rule text-faint" : rule.active ? "bg-pineSoft text-pine" : "bg-paper border border-rule text-faint"}`}>
                   {ended ? "VORBEI" : rule.active ? "AKTIV" : "PAUSE"}
+                </button>
+                <button onClick={() => startRuleEdit(rule)} className="text-faint hover:text-pine p-1">
+                  <Pencil className="w-4 h-4" />
                 </button>
                 <button onClick={() => deleteRule(rule.id)} className="text-faint hover:text-blood p-1">
                   <Trash2 className="w-4 h-4" />

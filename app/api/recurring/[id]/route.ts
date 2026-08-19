@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
-import { asMonthString } from "@/lib/api-validation"
+import { asIntegerInRange, asMonthString, asNonEmptyString, asPositiveNumber } from "@/lib/api-validation"
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -19,7 +19,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params
   const body = await req.json()
-  const data: { active?: boolean; accountId?: string | null; startMonth?: string | null; endMonth?: string | null } = {}
+  const data: {
+    active?: boolean; accountId?: string | null; startMonth?: string | null; endMonth?: string | null
+    name?: string; amount?: number; dayOfMonth?: number; categoryId?: string
+  } = {}
+
+  // Stammdaten nachträglich ändern (z.B. Mieterhöhung) — gilt nur für
+  // künftige Buchungen, bereits erzeugte bleiben unverändert
+  if ("name" in body) {
+    const parsed = asNonEmptyString(body.name)
+    if (!parsed) return NextResponse.json({ error: "Ungültiger Name" }, { status: 400 })
+    data.name = parsed
+  }
+  if ("amount" in body) {
+    const parsed = asPositiveNumber(body.amount)
+    if (parsed === null) return NextResponse.json({ error: "Ungültiger Betrag" }, { status: 400 })
+    data.amount = parsed
+  }
+  if ("dayOfMonth" in body) {
+    const parsed = asIntegerInRange(body.dayOfMonth, 1, 31)
+    if (parsed === null) return NextResponse.json({ error: "Ungültiger Tag (1–31)" }, { status: 400 })
+    data.dayOfMonth = parsed
+  }
+  if ("categoryId" in body) {
+    if (typeof body.categoryId !== "string" || !body.categoryId) {
+      return NextResponse.json({ error: "Ungültige Kategorie" }, { status: 400 })
+    }
+    const category = await prisma.category.findUnique({ where: { id: body.categoryId } })
+    if (!category) return NextResponse.json({ error: "Kategorie nicht gefunden" }, { status: 400 })
+    data.categoryId = body.categoryId
+  }
 
   if ("active" in body) {
     if (typeof body.active !== "boolean") {
