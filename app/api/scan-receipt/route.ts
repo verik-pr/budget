@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic({ apiKey })
 
-  let text: string
+  let raw: string
   let truncated = false
   try {
     const response = await client.messages.create({
@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
       // (Datum, Beträge) — Mehrkosten pro Scan: wenige Rappen
       model: "claude-sonnet-5",
       // Lange Kassenzettel (30+ Posten) brauchen deutlich mehr als 1024 Tokens,
-      // sonst wird das JSON abgeschnitten -> "Ungültiges Format von KI"
-      max_tokens: 8192,
+      // sonst wird das JSON abgeschnitten -> "Ungültiges Format von KI".
+      // 16k statt 8k: in Prod wurde eine Antwort trotz 8k abgeschnitten.
+      max_tokens: 16384,
       messages: [{
         role: "user",
         content: [
@@ -119,23 +120,26 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
 - Wähle die passendste verfügbare Kategorie (z.B. Putzmittel/Spülsalz → Haushalt, Körperpflege → Gesundheit)`,
           },
         ],
-      }],
+      },
+      // Prefill: die Antwort beginnt direkt im JSON — verhindert seitenlange
+      // Vorab-Prosa (hat in Prod trotz 8k-Limit zum Abschneiden geführt)
+      { role: "assistant", content: "{" }],
     })
+    if (String(response.stop_reason) === "refusal") {
+      return NextResponse.json({
+        error: "Die KI hat dieses Foto abgelehnt — bitte nur den Beleg gut lesbar fotografieren und nochmal versuchen",
+      }, { status: 422 })
+    }
     const content = response.content.find(c => c.type === "text")
-    text = content?.type === "text" ? content.text : ""
+    raw = content?.type === "text" ? content.text : ""
     truncated = response.stop_reason === "max_tokens"
+    if (!content) console.error("scan-receipt: KI-Antwort ohne Text", { stopReason: response.stop_reason })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unbekannter Fehler"
     return NextResponse.json({ error: `KI-Fehler: ${msg.slice(0, 120)}` }, { status: 502 })
   }
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    console.error("scan-receipt: kein JSON in KI-Antwort", text.slice(0, 300))
-    return NextResponse.json({ error: "Dokument konnte nicht gelesen werden" }, { status: 422 })
-  }
-
-  let parsed: {
+  type ParsedScan = {
     documentType: string
     merchant: string
     date: string
@@ -146,18 +150,34 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
     items: { name: string; amount: number; category: string }[]
     discounts?: number
   }
-  try {
-    parsed = JSON.parse(jsonMatch[0])
-  } catch {
-    console.error("scan-receipt: JSON-Parse fehlgeschlagen", { truncated, tail: text.slice(-200) })
+  // Zweistufig: erst mit vorangestelltem Prefill-"{" parsen (Normalfall),
+  // sonst die rohe Antwort (falls das Modell das "{" selbst wiederholt oder
+  // doch Prosa vor dem JSON schreibt)
+  let parsed: ParsedScan | null = null
+  for (const candidate of ["{" + raw, raw]) {
+    const match = candidate.match(/\{[\s\S]*\}/)
+    if (!match) continue
+    try {
+      parsed = JSON.parse(match[0])
+      break
+    } catch { /* nächster Kandidat */ }
+  }
+  if (!parsed) {
+    console.error("scan-receipt: kein parsebares JSON", { truncated, head: raw.slice(0, 200), tail: raw.slice(-200) })
     return NextResponse.json({
       error: truncated
         ? "Quittung zu lang für einen Scan — bitte in zwei Fotos aufteilen"
-        : "Ungültiges Format von KI — bitte nochmal scannen",
+        : "Dokument konnte nicht gelesen werden — bitte Beleg neu und gut lesbar fotografieren",
     }, { status: 422 })
   }
   if (!["receipt", "invoice"].includes(parsed.documentType)) {
-    return NextResponse.json({ error: "Ungültiger Dokumenttyp von KI" }, { status: 422 })
+    // Abbruch mitten im JSON kann ein inneres Teilobjekt als Match liefern —
+    // dann fehlt documentType und die Ursache ist die Länge, nicht das Format
+    return NextResponse.json({
+      error: truncated
+        ? "Quittung zu lang für einen Scan — bitte in zwei Fotos aufteilen"
+        : "Ungültiger Dokumenttyp von KI",
+    }, { status: 422 })
   }
   parsed.date = parseSwissDate(parsed.dateRaw) ?? asDateOnlyString(parsed.date) ?? today
   parsed.dueDate = parseSwissDate(parsed.dueDateRaw) ?? (parsed.dueDate ? asDateOnlyString(parsed.dueDate) : null)
