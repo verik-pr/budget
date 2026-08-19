@@ -252,7 +252,12 @@ Kontrolle: Summe der items − discounts + rounding ≈ bezahltes Total CHF. Wen
     date: parsed.date,
     dueDate: parsed.dueDate ?? null,
     reference: parsed.reference ?? null,
-    items: itemsWithIds.map(item => ({ ...item, amount: Math.max(0.01, toCHF(item.amount)) })),
+    items: itemsWithIds.map(item => ({
+      ...item,
+      amount: Math.max(0.01, toCHF(item.amount)),
+      // EUR-Original pro Posten — im Review neben dem CHF-Betrag angezeigt
+      ...(currency === "EUR" ? { originalAmount: item.amount } : {}),
+    })),
     // Belegweite Gutscheine/Rabatte (z.B. Cumulus-Bons) + Abrundung — Client
     // verteilt sie anteilig auf die Posten, damit der echte Zahlbetrag gebucht wird
     discounts: Math.max(0, toCHF((asNonNegativeNumber(parsed.discounts) ?? 0) + Math.max(0, -rounding))),

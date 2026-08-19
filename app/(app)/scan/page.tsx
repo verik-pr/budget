@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/confirm-sheet"
 type ScannedItem = {
   name: string
   amount: number
+  originalAmount?: number
   category: string
   categoryId: string
   categoryName: string
@@ -157,7 +158,12 @@ export default function ScanPage() {
     const amount = parseAmount(editAmount)
     const name = editName.trim()
     if (!name || !amount) return
-    setItems(prev => prev.map((item, j) => j === i ? { ...item, name, amount } : item))
+    setItems(prev => prev.map((item, j) => {
+      if (j !== i) return item
+      // Manuell geänderter CHF-Betrag → der €-Original stimmt nicht mehr
+      const amountChanged = Math.abs(amount - item.amount) >= 0.005
+      return { ...item, name, amount, ...(amountChanged ? { originalAmount: undefined } : {}) }
+    }))
     setEditingIndex(null)
   }
 
@@ -296,6 +302,9 @@ export default function ScanPage() {
                 {isInvoice ? <FileText className="w-3.5 h-3.5 text-blue-400" /> : <Receipt className="w-3.5 h-3.5 text-[#7fc89e]" />}
                 <p className="text-cream text-sm font-bold">
                   {merchant.trim() || result.merchant} · {result.date}
+                  {result.currency === "EUR" && (
+                    <span className="ml-2 bg-amber-400/15 text-amber-300 border border-amber-400/30 rounded-md px-1.5 py-0.5 text-[10px] font-black align-middle">💶 EUR → CHF</span>
+                  )}
                   {result.dueDate && <span className="text-orange-400 ml-2">fällig {result.dueDate}</span>}
                 </p>
               </div>
@@ -362,12 +371,12 @@ export default function ScanPage() {
             )}
 
             {result?.currency === "EUR" && result.exchangeRate != null && (
-              <div className="bg-blue-950/40 border border-blue-900/50 rounded-2xl px-4 py-3 flex items-start gap-3">
-                <span className="text-base mt-0.5 flex-shrink-0">💶</span>
+              <div className="bg-amber-400/10 border border-amber-400/40 rounded-2xl px-4 py-3 flex items-start gap-3">
+                <span className="text-xl flex-shrink-0">💶</span>
                 <div>
-                  <p className="text-blue-300 text-sm font-semibold">Euro-Beleg — in CHF umgerechnet</p>
-                  <p className="text-blue-400/70 text-xs mt-0.5">
-                    € {result.originalTotal?.toFixed(2)} × {result.exchangeRate} (EZB-Kurs vom {result.date})
+                  <p className="text-amber-300 text-sm font-bold">Euro-Beleg erkannt — alles in CHF umgerechnet</p>
+                  <p className="text-amber-200/70 text-xs mt-0.5">
+                    € {result.originalTotal?.toFixed(2)} × Kurs {result.exchangeRate} (EZB, {result.date}) — die €-Originale stehen bei jedem Posten.
                   </p>
                 </div>
               </div>
@@ -467,7 +476,12 @@ export default function ScanPage() {
                           {!item.excluded && <Check className="w-3 h-3 text-ink" strokeWidth={3} />}
                         </div>
                         <p className={`flex-1 text-sm font-semibold ${item.excluded ? "line-through text-cream/30" : "text-cream"}`}>{item.name}</p>
-                        <p className={`text-sm font-bold tabular-nums ${item.excluded ? "text-cream/25" : "text-cream"}`}>CHF {item.amount.toFixed(2)}</p>
+                        <div className="text-right">
+                          <p className={`text-sm font-bold tabular-nums ${item.excluded ? "text-cream/25" : "text-cream"}`}>CHF {item.amount.toFixed(2)}</p>
+                          {item.originalAmount != null && (
+                            <p className={`text-[11px] tabular-nums ${item.excluded ? "text-amber-400/20" : "text-amber-400/80"}`}>€ {item.originalAmount.toFixed(2)}</p>
+                          )}
+                        </div>
                         {!item.excluded && (
                           <button type="button"
                             onClick={e => { e.stopPropagation(); startItemEdit(i) }}
@@ -560,7 +574,13 @@ export default function ScanPage() {
           {saveError && <p className="text-[#e89890] text-xs text-center mb-2">{saveError}</p>}
           <div className="max-w-lg mx-auto flex items-center gap-4">
             <div className="flex-1">
-              <p className="amount text-cream text-lg">CHF {effectiveTotal.toFixed(2)}</p>
+              <p className="amount text-cream text-lg">
+                CHF {effectiveTotal.toFixed(2)}
+                {result?.currency === "EUR" && (() => {
+                  const eur = activeItems.reduce((s, i) => s + (i.originalAmount ?? 0), 0)
+                  return eur > 0 ? <span className="text-amber-400/80 text-xs font-sans font-bold ml-2">💶 € {eur.toFixed(2)}</span> : null
+                })()}
+              </p>
               <p className="text-cream/45 text-xs">
                 {activeItems.length} Posten
                 {discountValue > 0 && <span> · {formatCHF(activeTotal)} − {formatCHF(discountValue)} Rabatt</span>}
