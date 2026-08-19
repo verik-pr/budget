@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
-import { asDateOnlyString, asNonEmptyString, asNonNegativeNumber, asPositiveNumber } from "@/lib/api-validation"
+import { asDateOnlyString, asFiniteNumber, asNonEmptyString, asNonNegativeNumber, asPositiveNumber } from "@/lib/api-validation"
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024
 const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"])
@@ -83,7 +83,8 @@ Antworte NUR mit validem JSON. Beginne deine Antwort SOFORT mit { — kein Text 
   "items": [
     { "name": "Beschreibung", "amount": 12.50, "category": "Kategoriename" }
   ],
-  "discounts": 0
+  "discounts": 0,
+  "rounding": 0
 }
 
 Verfügbare Kategorien: ${categoryNames}
@@ -109,13 +110,19 @@ Posten — NUR echte Käufe erfassen:
   * Summenzeilen: TOTAL, Zwischentotal, Zwischensumme
   * Zahlungszeilen: Bar, Karte, Visa, Maestro, TWINT, Gegeben, Rückgeld, Total in EUR
   * MwSt-/Steuer-Tabellen, Rundungszeilen, «Sie sparen»-Zeilen
+  * Mengen-/Stückpreis-Zusatzzeilen (z.B. «2 x  2.59» unter/neben einem Artikel) — der Zeilen-Total des Artikels zählt
   * Pfand-Rückgaben und andere negative Beträge
 
 discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag):
 - CUMULUS-BON-Zeilen mit Minusbetrag (z.B. «CUMULUS BON 10.- ... 10.00-») sind eingelöste GUTSCHEINE, keine Punkte: ihre Beträge NICHT als Posten erfassen, sondern aufsummieren und als "discounts" zurückgeben (positive Zahl).
 - Ebenso andere belegweite Gutschein-/Rabatt-Abzüge zwischen Zwischentotal und Total.
-- Kontrolle: Summe der items minus discounts ≈ aufgedrucktes Total CHF. Wenn nicht, prüfe nochmal, ob du Abzüge übersehen oder die falsche Spalte gelesen hast.
 - Keine belegweiten Abzüge vorhanden → "discounts": 0
+
+rounding — Schweizer Rappenrundung am Belegende:
+- Eine Zeile wie «Rundung −0.03» EXAKT mit Vorzeichen als "rounding" zurückgeben (meist negativ), NIE als Posten und NICHT in discounts.
+- Keine Rundungszeile → "rounding": 0
+
+Kontrolle: Summe der items − discounts + rounding ≈ bezahltes Total CHF. Wenn nicht, prüfe nochmal, ob du Abzüge/Rundung übersehen oder die falsche Spalte gelesen hast.
 
 - Wähle die passendste verfügbare Kategorie (z.B. Putzmittel/Spülsalz → Haushalt, Körperpflege → Gesundheit)`,
           },
@@ -150,6 +157,7 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
     reference: string | null
     items: { name: string; amount: number; category: string }[]
     discounts?: number
+    rounding?: number
   }
   // Zweistufig: erst die rohe Antwort parsen (Normalfall — beginnt mit «{»,
   // Regex überspringt allfällige Prosa davor), als Fallback mit vorangestellter
@@ -206,6 +214,11 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
     return NextResponse.json({ error: "Keine gültigen Positionen erkannt" }, { status: 422 })
   }
 
+  // Schweizer Rappenrundung: eine ABrundung («Rundung −0.03») wirkt wie ein
+  // belegweiter Abzug und wandert in discounts — so wird gebucht, was wirklich
+  // bezahlt wurde. Eine Aufrundung (selten, max +2 Rp) wird bewusst ignoriert.
+  const rounding = Math.max(-0.1, Math.min(0.1, asFiniteNumber(parsed.rounding) ?? 0))
+
   return NextResponse.json({
     documentType: parsed.documentType,
     merchant: parsed.merchant,
@@ -213,8 +226,8 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
     dueDate: parsed.dueDate ?? null,
     reference: parsed.reference ?? null,
     items: itemsWithIds,
-    // Belegweite Gutscheine/Rabatte (z.B. Cumulus-Bons) — Client verteilt
-    // sie anteilig auf die Posten, damit der echte Zahlbetrag gebucht wird
-    discounts: Math.round((asNonNegativeNumber(parsed.discounts) ?? 0) * 100) / 100,
+    // Belegweite Gutscheine/Rabatte (z.B. Cumulus-Bons) + Abrundung — Client
+    // verteilt sie anteilig auf die Posten, damit der echte Zahlbetrag gebucht wird
+    discounts: Math.round(((asNonNegativeNumber(parsed.discounts) ?? 0) + Math.max(0, -rounding)) * 100) / 100,
   })
 }
