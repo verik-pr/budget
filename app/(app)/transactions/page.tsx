@@ -80,20 +80,47 @@ export default function TransactionsPage() {
     }
   }
 
-  async function editReceipt(receiptId: string, data: { merchant: string; date: string }) {
+  async function editReceipt(receiptId: string, data: { merchant: string; date: string; contributor?: string; split?: string }) {
     try {
       const res = await fetch(`/api/receipts/${receiptId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error)
+      }
       toast("Quittung aktualisiert")
       fetchTransactions(false)
       return true
-    } catch {
-      toast("Konnte nicht speichern", "error")
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Konnte nicht speichern", "error")
       return false
+    }
+  }
+
+  async function deleteReceipt(receiptId: string) {
+    const count = transactions.filter(t => t.receiptId === receiptId).length
+    const ok = await confirm({
+      title: "Ganze Quittung löschen?",
+      description: `Alle ${count} Posten dieser Quittung werden gelöscht.`,
+      confirmLabel: "Alles löschen",
+      destructive: true,
+    })
+    if (!ok) return
+    const backup = transactions
+    setTransactions(ts => ts.filter(t => t.receiptId !== receiptId))
+    try {
+      const res = await fetch(`/api/receipts/${receiptId}`, { method: "DELETE" })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error)
+      }
+      toast("Quittung gelöscht")
+    } catch (e) {
+      setTransactions(backup)
+      toast(e instanceof Error && e.message ? e.message : "Konnte nicht gelöscht werden", "error")
     }
   }
 
@@ -173,6 +200,7 @@ export default function TransactionsPage() {
           <TransactionList
             transactions={visible}
             onDelete={deleteTransaction}
+            onDeleteReceipt={deleteReceipt}
             onLightbox={path => setLightbox(path)}
             onEditReceipt={editReceipt}
           />

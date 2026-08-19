@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { formatCHF, formatDate, getContributorLabel } from "@/lib/utils"
+import { CONTRIBUTORS, contributorFromName, formatCHF, formatDate, getContributorLabel } from "@/lib/utils"
 import { Check, ChevronDown, ChevronUp, Pencil, Trash2, Image, X } from "lucide-react"
 import Link from "next/link"
 
@@ -12,6 +12,8 @@ export type TxItem = {
   description: string | null
   photoPath?: string | null
   contributor: string | null
+  sharedWith?: string | null
+  sharedRatio?: number | null
   recurringId?: string | null
   faceAmount?: number | null
   receiptId: string | null
@@ -61,38 +63,78 @@ function groupTransactions(transactions: TxItem[]): Row[] {
   return rows
 }
 
+export type ReceiptEditData = {
+  merchant: string
+  date: string
+  contributor?: "erik" | "celine"
+  split?: "solo" | "half" | "full"
+}
+
 function ReceiptCard({
   group,
   onDelete,
   onLightbox,
   onEditReceipt,
+  onDeleteReceipt,
 }: {
   group: ReceiptGroup
   onDelete?: (id: string) => void
   onLightbox?: (path: string) => void
-  onEditReceipt?: (receiptId: string, data: { merchant: string; date: string }) => Promise<boolean>
+  onEditReceipt?: (receiptId: string, data: ReceiptEditData) => Promise<boolean>
+  onDeleteReceipt?: (receiptId: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editMerchant, setEditMerchant] = useState("")
   const [editDate, setEditDate] = useState("")
+  const [editPayer, setEditPayer] = useState<"" | "erik" | "celine">("")
+  const [editSplit, setEditSplit] = useState<"" | "solo" | "half" | "full">("")
   const [savingEdit, setSavingEdit] = useState(false)
   const icons = [...new Set(group.items.map(i => i.category.icon))].slice(0, 3)
   const isExpense = group.items.every(i => i.category.type === "expense")
 
+  // Einheitlicher Zahler/Split über alle Posten? Sonst leer (gemischt) —
+  // dann werden die Chips erst beim Antippen für alle gesetzt.
+  const payerOf = (t: TxItem) => t.contributor || contributorFromName(t.user.name)
+  const modeOf = (t: TxItem): "solo" | "half" | "full" => !t.sharedWith ? "solo" : t.sharedRatio === 0.5 ? "half" : "full"
+  const payers = [...new Set(group.items.map(payerOf))]
+  const modes = [...new Set(group.items.map(modeOf))]
+  const uniformPayer = payers.length === 1 && (payers[0] === "erik" || payers[0] === "celine") ? payers[0] as "erik" | "celine" : ""
+  const uniformMode = modes.length === 1 ? modes[0] : ""
+  const mixed = uniformPayer === "" || uniformMode === ""
+
   function startEdit() {
     setEditMerchant(group.merchant)
     setEditDate(new Date(group.date).toISOString().split("T")[0])
+    setEditPayer(uniformPayer)
+    setEditSplit(uniformPayer ? uniformMode : "")
     setEditing(true)
+  }
+
+  // Zahler & Aufteilung gelten nur zusammen — Wahl des einen aktiviert das andere
+  function pickPayer(p: "erik" | "celine") {
+    setEditPayer(p)
+    if (!editSplit) setEditSplit(uniformMode || "solo")
+  }
+  function pickSplit(m: "solo" | "half" | "full") {
+    setEditSplit(m)
+    if (!editPayer) setEditPayer(uniformPayer || (payerOf(group.items[0]) === "celine" ? "celine" : "erik"))
   }
 
   async function saveEdit() {
     if (!onEditReceipt || !editMerchant.trim() || !editDate) return
     setSavingEdit(true)
-    const ok = await onEditReceipt(group.receiptId, { merchant: editMerchant.trim(), date: editDate })
+    const ok = await onEditReceipt(group.receiptId, {
+      merchant: editMerchant.trim(),
+      date: editDate,
+      ...(editPayer && editSplit ? { contributor: editPayer, split: editSplit } : {}),
+    })
     setSavingEdit(false)
     if (ok) setEditing(false)
   }
+
+  const payerFirst = (CONTRIBUTORS.find(c => c.value === editPayer)?.label ?? "Zahler").split(" ")[0]
+  const partnerFirst = (CONTRIBUTORS.find(c => c.value === (editPayer === "celine" ? "erik" : "celine"))?.label ?? "Partner").split(" ")[0]
 
   return (
     <div>
@@ -113,7 +155,35 @@ function ReceiptCard({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-faint text-xs italic font-serif">Gilt für alle {group.items.length} Posten dieser Quittung.</p>
+          <div className="flex gap-1.5 flex-wrap items-center">
+            <span className="text-faint text-[11px] mr-0.5">Bezahlt von</span>
+            {CONTRIBUTORS.filter(c => c.value === "erik" || c.value === "celine").map(c => (
+              <button key={c.value} type="button" onClick={() => pickPayer(c.value as "erik" | "celine")}
+                style={editPayer === c.value ? { backgroundColor: c.color, color: "#fff" } : {}}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${editPayer === c.value ? "shadow" : "bg-paper border border-rule text-muted"}`}>
+                {c.label.split(" ")[0]}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1.5 flex-wrap items-center">
+            <span className="text-faint text-[11px] mr-0.5">Teilen</span>
+            {([["solo", `Nur ${editPayer ? payerFirst : "Zahler"}`], ["half", "50/50"], ["full", `Für ${partnerFirst}`]] as const).map(([m, label]) => (
+              <button key={m} type="button" onClick={() => pickSplit(m)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${editSplit === m ? "bg-ink text-cream shadow" : "bg-paper border border-rule text-muted"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-faint text-xs italic font-serif">
+            Gilt für alle {group.items.length} Posten dieser Quittung.
+            {mixed && !editPayer && " Zahler/Aufteilung sind gemischt — eine Auswahl setzt sie für alle."}
+          </p>
+          {onDeleteReceipt && (
+            <button type="button" onClick={() => onDeleteReceipt(group.receiptId)}
+              className="flex items-center gap-1.5 text-blood text-xs font-bold pt-1">
+              <Trash2 className="w-3.5 h-3.5" />Ganze Quittung löschen ({group.items.length} Posten)
+            </button>
+          )}
         </div>
       ) : (
       <div className="flex items-center">
@@ -192,11 +262,13 @@ export function TransactionList({
   onDelete,
   onLightbox,
   onEditReceipt,
+  onDeleteReceipt,
 }: {
   transactions: TxItem[]
   onDelete?: (id: string) => void
   onLightbox?: (path: string) => void
-  onEditReceipt?: (receiptId: string, data: { merchant: string; date: string }) => Promise<boolean>
+  onEditReceipt?: (receiptId: string, data: ReceiptEditData) => Promise<boolean>
+  onDeleteReceipt?: (receiptId: string) => void
 }) {
   const rows = groupTransactions(transactions)
 
@@ -209,7 +281,7 @@ export function TransactionList({
         if (row.kind === "group") {
           return (
             <div key={row.group.receiptId} className={!isLast ? "border-b border-rule/60" : ""}>
-              <ReceiptCard group={row.group} onDelete={onDelete} onLightbox={onLightbox} onEditReceipt={onEditReceipt} />
+              <ReceiptCard group={row.group} onDelete={onDelete} onLightbox={onLightbox} onEditReceipt={onEditReceipt} onDeleteReceipt={onDeleteReceipt} />
             </div>
           )
         }
