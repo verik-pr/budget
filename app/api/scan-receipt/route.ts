@@ -52,7 +52,10 @@ export async function POST(req: NextRequest) {
   let truncated = false
   try {
     const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      // Sonnet statt Haiku: hochauflösende Bildverarbeitung (2576px statt 1568px)
+      // liest das Kleingedruckte auf Kassenzetteln deutlich zuverlässiger
+      // (Datum, Beträge) — Mehrkosten pro Scan: wenige Rappen
+      model: "claude-sonnet-5",
       // Lange Kassenzettel (30+ Posten) brauchen deutlich mehr als 1024 Tokens,
       // sonst wird das JSON abgeschnitten -> "Ungültiges Format von KI"
       max_tokens: 8192,
@@ -85,14 +88,26 @@ Verfügbare Kategorien: ${categoryNames}
 
 Regeln:
 - documentType: "receipt" für Kassenbelege/Quittungen, "invoice" für Rechnungen/Bills
-- date: Ausstellungsdatum, falls nicht lesbar nimm ${today}
-- ACHTUNG Datumsformat: Schweizer Belege drucken TT.MM.JJJJ — «02.05.2026» ist der 2. Mai 2026, NICHT der 5. Februar
+
+Datum (sorgfältig vom Beleg ablesen):
+- dateRaw: das aufgedruckte Kauf-/Ausstellungsdatum EXAKT abschreiben. Auf Schweizer Kassenzetteln steht es meist oben oder unten beim Zeitstempel (z.B. «04.08.26 17:32»).
+- ACHTUNG Datumsformat: Schweizer Belege drucken TT.MM.JJJJ — «02.05.2026» ist der 2. Mai 2026, NICHT der 5. Februar. Zweistellige Jahre: 26 = 2026.
+- date: dasselbe Datum als YYYY-MM-DD; nur wenn wirklich keines lesbar ist, nimm ${today}
 - dueDate: Zahlungsfrist bei Rechnungen, sonst null
 - reference: Rechnungsnummer, Zahlungsreferenz, ESR-Nummer etc., sonst null
-- Beträge: immer positiv, 2 Dezimalstellen
+
+Posten — NUR echte Käufe erfassen:
+- Beträge: immer positiv, 2 Dezimalstellen, exakt wie aufgedruckt
 - Bei Rechnungen: ein Posten mit dem Gesamtbetrag reicht, ausser Einzelpositionen sind klar aufgeführt
-- Bei Quittungen: jeden Posten einzeln erfassen, keine Rabatte oder Zwischensummen
-- Wähle die passendste verfügbare Kategorie`,
+- Bei Quittungen: jeden gekauften Artikel einzeln erfassen
+- Diese Zeilen sind KEINE Käufe und werden NIE als Posten erfasst:
+  * Treueprogramm-Zeilen: Cumulus, Cumulus-Punkte, Supercard, Superpunkte, Bonuspunkte, Punktestand
+  * Summenzeilen: TOTAL, Zwischensumme, Summe
+  * Zahlungszeilen: Bar, Karte, Maestro, TWINT, Gegeben, Rückgeld
+  * MwSt-/Steuer-Tabellen, Rundungszeilen, «Sie sparen»-Zeilen
+  * Pfand-Rückgaben und andere negative Beträge
+- Ist ein Rabatt direkt einem Artikel zugeordnet, erfasse den Artikel mit dem effektiv bezahlten Preis
+- Wähle die passendste verfügbare Kategorie (z.B. Putzmittel/Spülsalz → Haushalt)`,
           },
         ],
       }],

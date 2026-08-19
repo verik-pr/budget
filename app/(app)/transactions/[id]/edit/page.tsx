@@ -29,6 +29,7 @@ export default function EditTransactionPage() {
   const [date, setDate] = useState("")
   const [contributor, setContributor] = useState("")
   const [splitMode, setSplitMode] = useState<"solo" | "half" | "full">("solo")
+  const [isPrivate, setIsPrivate] = useState(false)
   const [accountId, setAccountId] = useState("")
   const [txUserName, setTxUserName] = useState("")
   const [loading, setLoading] = useState(true)
@@ -87,6 +88,7 @@ export default function EditTransactionPage() {
       setSplitMode(tx.sharedWith ? (tx.sharedRatio === 0.5 ? "half" : "full") : "solo")
       setAccountId(tx.accountId ?? "")
       setTxUserName(tx.user?.name ?? "")
+      setIsPrivate(tx.isPrivate === true)
       setLoading(false)
     }).catch(() => {
       toast("Konnte Buchung nicht laden", "error")
@@ -117,8 +119,15 @@ export default function EditTransactionPage() {
           accountId: accountId || null,
           sharedWith: splitActive ? partnerValue : null,
           sharedRatio: splitActive ? (splitMode === "half" ? 0.5 : 1.0) : null,
+          isPrivate,
         }),
       })
+      if (res.status === 403) {
+        const err = await res.json().catch(() => ({}))
+        toast(err.error ?? "Private Buchung", "error")
+        setSaving(false)
+        return
+      }
       if (!res.ok) throw new Error()
       toast("Buchung aktualisiert")
       router.back()
@@ -276,6 +285,25 @@ export default function EditTransactionPage() {
               </p>
             </div>
           )}
+
+          {/* Privat */}
+          <button type="button" onClick={() => setIsPrivate(p => !p)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-left ${
+              isPrivate ? "bg-ink border-ink" : "bg-card border-rule"
+            }`}>
+            <span className="text-lg">🔒</span>
+            <span className="flex-1">
+              <span className={`block text-sm font-bold ${isPrivate ? "text-cream" : "text-ink"}`}>Privat</span>
+              <span className={`block text-xs mt-0.5 ${isPrivate ? "text-cream/60" : "text-muted"}`}>
+                Betrag & Kategorie bleiben sichtbar, Beschreibung nur für dich
+              </span>
+            </span>
+            <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+              isPrivate ? "border-cream bg-cream" : "border-rule"
+            }`}>
+              {isPrivate && <Check className="w-3 h-3 text-ink" strokeWidth={3} />}
+            </span>
+          </button>
 
           <button type="submit" disabled={saving || !amount || !categoryId}
             className="w-full bg-pine text-cream rounded-2xl py-4 font-bold text-sm disabled:opacity-30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">

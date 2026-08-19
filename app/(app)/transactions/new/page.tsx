@@ -27,6 +27,7 @@ export default function NewTransactionPage() {
   const [date, setDate] = useState(todayLocalISO())
   const [contributor, setContributor] = useState("")
   const [splitMode, setSplitMode] = useState<"solo" | "half" | "full">("solo")
+  const [isPrivate, setIsPrivate] = useState(false)
   const [accountId, setAccountId] = useState("")
   const [accounts, setAccounts] = useState<Account[]>([])
 
@@ -148,6 +149,7 @@ export default function NewTransactionPage() {
           // Buchung aus der Auslagen-Abrechnung (/api/debts matcht auf contributor)
           contributor: splitActive ? payerValue : contributor || null,
           accountId: accountId || null,
+          isPrivate,
           ...(splitActive ? { sharedWith: partnerValue, sharedRatio: splitMode === "half" ? 0.5 : 1.0 } : {}),
         }),
       })
@@ -326,6 +328,25 @@ export default function NewTransactionPage() {
               </p>
             </div>
           )}
+
+          {/* Privat */}
+          <button type="button" onClick={() => setIsPrivate(p => !p)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-left ${
+              isPrivate ? "bg-ink border-ink" : "bg-card border-rule"
+            }`}>
+            <span className="text-lg">🔒</span>
+            <span className="flex-1">
+              <span className={`block text-sm font-bold ${isPrivate ? "text-cream" : "text-ink"}`}>Privat</span>
+              <span className={`block text-xs mt-0.5 ${isPrivate ? "text-cream/60" : "text-muted"}`}>
+                Betrag & Kategorie bleiben sichtbar, Beschreibung nur für dich (z.B. Geschenke)
+              </span>
+            </span>
+            <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+              isPrivate ? "border-cream bg-cream" : "border-rule"
+            }`}>
+              {isPrivate && <Check className="w-3 h-3 text-ink" strokeWidth={3} />}
+            </span>
+          </button>
 
           {/* Photo */}
           <div>

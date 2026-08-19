@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { asFiniteNumber, asNullableString, asValidDate } from "@/lib/api-validation"
-import { giftcardFactor } from "@/lib/utils"
+import { giftcardFactor, maskPrivateTx } from "@/lib/utils"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: { category: true, user: { select: { id: true, name: true } }, account: true },
   })
   if (!transaction) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  return NextResponse.json(transaction)
+  return NextResponse.json(maskPrivateTx(transaction, session.user.id))
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -27,9 +27,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { amount, categoryId, description, date, contributor, accountId, sharedWith, sharedRatio } = body
   const existing = await prisma.transaction.findUnique({
     where: { id },
-    select: { id: true, accountId: true, amount: true, faceAmount: true },
+    select: { id: true, accountId: true, amount: true, faceAmount: true, isPrivate: true, userId: true },
   })
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  // Private Buchungen darf nur der Ersteller bearbeiten
+  if (existing.isPrivate && existing.userId !== session.user.id) {
+    return NextResponse.json({ error: "Private Buchung — nur der Ersteller kann sie bearbeiten" }, { status: 403 })
+  }
 
   const parsedAmount = amount !== undefined ? asFiniteNumber(amount) : undefined
   const parsedDate = date !== undefined ? asValidDate(date) : undefined
@@ -83,6 +87,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(parsedAccountId !== undefined && { accountId: parsedAccountId }),
       ...(parsedSharedWith !== undefined && { sharedWith: parsedSharedWith }),
       ...(parsedSharedRatio !== undefined && { sharedRatio: parsedSharedRatio }),
+      ...(body.isPrivate !== undefined && { isPrivate: body.isPrivate === true }),
     },
   })
   return NextResponse.json(transaction)
@@ -93,8 +98,11 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const existing = await prisma.transaction.findUnique({ where: { id }, select: { id: true } })
+  const existing = await prisma.transaction.findUnique({ where: { id }, select: { id: true, isPrivate: true, userId: true } })
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (existing.isPrivate && existing.userId !== session.user.id) {
+    return NextResponse.json({ error: "Private Buchung — nur der Ersteller kann sie löschen" }, { status: 403 })
+  }
   await prisma.transaction.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

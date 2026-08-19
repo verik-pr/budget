@@ -115,6 +115,7 @@ model Transaction {
   sharedWith      String?
   sharedRatio     Float?
   faceAmount      Float?               // Beleg-Betrag nominal bei Geschenkkarten (amount = faceAmount × Rabattfaktor)
+  isPrivate       Boolean              @default(false) // Details nur für den Ersteller sichtbar (z.B. Geschenke)
   note            String?
   receiptId       String?
   receiptMerchant String?

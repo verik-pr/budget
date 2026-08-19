@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { creditCardBalanceOf, formatCHF, parseAmount } from "@/lib/utils"
 import { DeltaCard } from "@/components/delta-card"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, X, Check } from "lucide-react"
@@ -400,7 +401,8 @@ export default function StatsPage() {
                     const over = budgetPct > 100
                     const near = budgetPct > 80 && budgetPct <= 100
                     return (
-                      <div key={cat.id} className={`px-5 py-4 ${i < byCategory.length - 1 ? "border-b border-rule/60" : ""}`}>
+                      <Link key={cat.id} href={`/stats/kategorie/${encodeURIComponent(cat.id)}`}
+                        className={`block px-5 py-4 active:bg-paper/60 transition-colors ${i < byCategory.length - 1 ? "border-b border-rule/60" : ""}`}>
                         <div className="flex items-center gap-3 mb-2.5">
                           <span className="text-xl w-7 text-center">{cat.icon}</span>
                           <p className="text-sm font-semibold text-ink flex-1">{cat.name}</p>
@@ -408,6 +410,7 @@ export default function StatsPage() {
                             <p className="amount text-[15px] text-ink">{formatCHF(cat.total)}</p>
                             <p className="text-xs text-muted">{pct.toFixed(0)}%</p>
                           </div>
+                          <ChevronRight className="w-4 h-4 text-faint flex-shrink-0" />
                         </div>
                         <div className="h-1 bg-rule/60 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${tab === "expense" ? "bg-ink" : "bg-pine"}`} style={{ width: `${pct}%` }} />
@@ -426,7 +429,7 @@ export default function StatsPage() {
                             </div>
                           </div>
                         )}
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>

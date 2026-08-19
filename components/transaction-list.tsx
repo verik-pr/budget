@@ -17,6 +17,7 @@ export type TxItem = {
   receiptId: string | null
   receiptMerchant: string | null
   note: string | null
+  isPrivate?: boolean
   category: { id: string; name: string; icon: string; type: string }
   user: { id: string; name: string; color: string }
   account: { id: string; name: string; icon: string; color: string } | null
@@ -214,7 +215,8 @@ export function TransactionList({
               <span className="text-2xl w-8 text-center flex-shrink-0">{t.category.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-ink truncate">
-                  {t.description || t.category.name}
+                  {t.isPrivate && <span className="mr-1">🔒</span>}
+                  {t.description || (t.isPrivate ? "Privat" : t.category.name)}
                   {t.recurringId && <span className="text-faint ml-1 font-normal">↻</span>}
                 </p>
                 <p className="text-xs text-muted mt-0.5 truncate">

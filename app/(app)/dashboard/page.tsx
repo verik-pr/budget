@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { CONTRIBUTORS, expenseShares, formatCHF } from "@/lib/utils"
+import { CONTRIBUTORS, expenseShares, formatCHF, maskPrivateTx } from "@/lib/utils"
 import { getUpcomingPayments } from "@/lib/upcoming"
 import { AccountSelector } from "@/components/account-selector"
 import { TransactionList } from "@/components/transaction-list"
@@ -24,17 +24,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const allAccounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } })
 
-  // Only show the user's own personal account + shared accounts
+  // Full Disclosure: beide sehen alle persönlichen und gemeinsamen Konten;
+  // das eigene ist nur das Standard-Konto
   const firstName = session?.user?.name?.split(" ")[0] ?? ""
   const personalAccount = allAccounts.find(a =>
     a.type === "personal" && a.name.toLowerCase().includes(firstName.toLowerCase())
   )
   const visibleAccounts = allAccounts.filter(a =>
-    a.type === "shared" || a.id === personalAccount?.id
+    a.type === "shared" || a.type === "personal"
   )
   const selectedId = konto ?? personalAccount?.id ?? visibleAccounts[0]?.id
 
-  // When viewing personal account, also include transactions with no account assigned
+  // Beim eigenen persönlichen Konto auch Buchungen ohne Konto-Zuordnung zeigen
   const isPersonal = selectedId === personalAccount?.id
   const accountFilter = isPersonal
     ? { OR: [{ accountId: selectedId }, { accountId: null }] }
@@ -187,7 +188,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {transactions.length === 0 ? (
             <p className="text-muted text-sm text-center py-12">Noch keine Buchungen diese Periode</p>
           ) : (
-            <TransactionList transactions={transactions.slice(0, 12)} />
+            <TransactionList transactions={transactions.slice(0, 12).map(t => maskPrivateTx(t, session?.user?.id ?? ""))} />
           )}
         </div>
       </div>

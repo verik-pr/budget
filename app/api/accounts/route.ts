@@ -35,12 +35,12 @@ export async function GET(req: Request) {
   }
 
   if (mine) {
+    // Full Disclosure: beide sehen alle Konten (auch das persönliche des
+    // Partners); "mine" bestimmt nur noch das Standard-Konto
     const firstName = session.user.name?.split(" ")[0]?.toLowerCase() ?? ""
     const personal = accounts.find(a => a.type === "personal" && a.name.toLowerCase().includes(firstName))
-    // credit-Konten mitliefern: der Planung-Tab zeigt Kreditkarten-Salden daraus
-    const visible = accounts.filter(a => a.type === "shared" || a.type === "credit" || a.type === "giftcard" || a.id === personal?.id)
-    const defaultId = personal?.id ?? visible.find(a => a.type !== "credit" && a.type !== "giftcard")?.id ?? null
-    return NextResponse.json({ accounts: visible, defaultId })
+    const defaultId = personal?.id ?? accounts.find(a => a.type !== "credit" && a.type !== "giftcard")?.id ?? null
+    return NextResponse.json({ accounts, defaultId })
   }
 
   return NextResponse.json(accounts)

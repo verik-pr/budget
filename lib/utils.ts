@@ -53,6 +53,20 @@ export function giftcardFactor(acc: { type: string; giftcardFaceValue?: number |
   return acc.giftcardPrice / acc.giftcardFaceValue
 }
 
+// Private Buchung: Betrag/Kategorie bleiben sichtbar (Summen stimmen),
+// aber Beschreibung, Notiz, Foto und Händler sieht nur der Ersteller
+export function maskPrivateTx<T extends {
+  isPrivate?: boolean
+  userId?: string
+  description?: string | null
+  note?: string | null
+  photoPath?: string | null
+  receiptMerchant?: string | null
+}>(tx: T, viewerUserId: string): T {
+  if (!tx.isPrivate || tx.userId === viewerUserId) return tx
+  return { ...tx, description: null, note: null, photoPath: null, receiptMerchant: null }
+}
+
 // Offener Kreditkarten-Saldo: Ausgaben minus Zahlungen (Einnahmen-Buchungen)
 export function creditCardBalanceOf(txs: { amount: number; category: { type: string } }[]): number {
   return txs.reduce((s, t) => s + (t.category.type === "income" ? -t.amount : t.amount), 0)

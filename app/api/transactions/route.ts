@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { after, NextResponse } from "next/server"
 import { checkBudgetThresholds, notifyPartnerOfBooking } from "@/lib/push-triggers"
 import { asFiniteNumber, asNullableString, asValidDate } from "@/lib/api-validation"
-import { giftcardFactor } from "@/lib/utils"
+import { giftcardFactor, maskPrivateTx } from "@/lib/utils"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -48,7 +48,8 @@ export async function GET(req: Request) {
     orderBy: { date: "desc" },
   })
 
-  return NextResponse.json(transactions)
+  const viewerId = session.user.id
+  return NextResponse.json(transactions.map(t => maskPrivateTx(t, viewerId)))
 }
 
 export async function POST(req: Request) {
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { date, amount, description, categoryId, photoPath, contributor, accountId, sharedWith, sharedRatio, note, receiptId, receiptMerchant } = body
+  const { date, amount, description, categoryId, photoPath, contributor, accountId, sharedWith, sharedRatio, note, receiptId, receiptMerchant, isPrivate } = body
   const parsedDate = asValidDate(date)
   const parsedAmount = asFiniteNumber(amount)
   const parsedAccountId = asNullableString(accountId)
@@ -101,6 +102,7 @@ export async function POST(req: Request) {
       accountId: parsedAccountId,
       ...(parsedSharedWith ? { sharedWith: parsedSharedWith, sharedRatio: parsedSharedRatio } : {}),
       note: asNullableString(note),
+      isPrivate: isPrivate === true,
       receiptId: asNullableString(receiptId),
       receiptMerchant: asNullableString(receiptMerchant),
     },
