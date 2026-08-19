@@ -26,6 +26,7 @@ type ScanResult = {
   dueDate: string | null
   reference: string | null
   items: ScannedItem[]
+  discounts?: number
 }
 
 type Category = { id: string; name: string; icon: string; type: string }
@@ -55,6 +56,7 @@ export default function ScanPage() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editName, setEditName] = useState("")
   const [editAmount, setEditAmount] = useState("")
+  const [discount, setDiscount] = useState("")
 
   const firstName = session?.user?.name?.split(" ")[0]?.toLowerCase() ?? ""
   const myContrib = CONTRIBUTORS.find(c => c.label.toLowerCase().startsWith(firstName)) ?? CONTRIBUTORS[0]
@@ -105,6 +107,7 @@ export default function ScanPage() {
       setResult(data)
       setItems(data.items.map(item => ({ ...item, excluded: false, contributor: "", sharedWith: null, sharedRatio: null })))
       setDate(/^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "") ? data.date : todayLocalISO())
+      setDiscount(data.discounts && data.discounts > 0 ? data.discounts.toFixed(2) : "")
       setLastSaved(null)
       setPhase("review")
     } catch (err) {
@@ -154,11 +157,37 @@ export default function ScanPage() {
     return item.sharedRatio === 0.5 ? "half" : "full"
   }
 
+  // Belegweite Gutscheine (Cumulus-Bons etc.) anteilig auf die Posten
+  // verteilen, damit die Summe dem echten Zahlbetrag entspricht.
+  // Rundungsdifferenz landet auf dem grössten Posten; Minimum 1 Rappen.
+  function applyDiscount(toSave: ScannedItem[], discountVal: number) {
+    const total = toSave.reduce((s, i) => s + i.amount, 0)
+    if (discountVal <= 0 || total <= 0) return toSave.map(i => ({ ...i }))
+    const factor = Math.max(0, total - discountVal) / total
+    const scaled = toSave.map(i => ({ ...i, amount: Math.max(0.01, Math.round(i.amount * factor * 100) / 100) }))
+    const targetCents = Math.round(Math.max(0.01 * toSave.length, total - discountVal) * 100)
+    const sumCents = scaled.reduce((s, i) => s + Math.round(i.amount * 100), 0)
+    const diff = targetCents - sumCents
+    if (diff !== 0) {
+      const largest = scaled.reduce((a, b) => (a.amount >= b.amount ? a : b))
+      largest.amount = Math.max(0.01, Math.round((largest.amount * 100 + diff)) / 100)
+    }
+    return scaled
+  }
+
   async function handleSave(force = false) {
     const toSave = items.filter(i => !i.excluded)
     if (toSave.length === 0) return
+    const rawTotal = toSave.reduce((s, i) => s + i.amount, 0)
+    const discountVal = discount.trim() ? parseAmount(discount) ?? 0 : 0
+    if (discountVal >= rawTotal) {
+      setSaveError("Rabatt ist grösser als die Postensumme — bitte prüfen")
+      return
+    }
     setSaving(true)
     setSaveError("")
+
+    const discounted = applyDiscount(toSave, discountVal)
 
     try {
       const response = await fetch("/api/scan-receipt/save", {
@@ -170,7 +199,7 @@ export default function ScanPage() {
           note: note || null,
           force,
           receiptMerchant: result?.merchant ?? null,
-          items: toSave.map(item => ({
+          items: discounted.map(item => ({
             amount: item.amount,
             categoryId: item.categoryId,
             description: item.name,
@@ -195,13 +224,14 @@ export default function ScanPage() {
         throw new Error(err.error || `HTTP ${response.status}`)
       }
       // Erfolg: zurück zum Scannen für die nächste Quittung (Stapel-Erfassung)
-      const total = toSave.reduce((s, i) => s + i.amount, 0)
+      const total = discounted.reduce((s, i) => s + i.amount, 0)
       setLastSaved({ merchant: result?.merchant ?? "Beleg", total })
       setSavedCount(c => c + 1)
       setResult(null)
       setItems([])
       setNote("")
       setDate("")
+      setDiscount("")
       setSaving(false)
       setPhase("capture")
       window.scrollTo(0, 0)
@@ -219,6 +249,8 @@ export default function ScanPage() {
 
   const activeItems = items.filter(i => !i.excluded)
   const activeTotal = activeItems.reduce((s, i) => s + i.amount, 0)
+  const discountValue = discount.trim() ? parseAmount(discount) ?? 0 : 0
+  const effectiveTotal = Math.max(0, activeTotal - discountValue)
   const isInvoice = result?.documentType === "invoice"
   const selectedAccount = accounts.find(a => a.id === accountId)
   const gcFactor = giftcardFactor(selectedAccount)
@@ -466,6 +498,21 @@ export default function ScanPage() {
             )}
 
             <div>
+              <p className="kicker text-cream/40 mb-2">Gutscheine / Rabatte</p>
+              <div className="flex items-center gap-3 bg-cream/[0.07] rounded-2xl px-4 py-3 mb-4">
+                <span className="text-lg">🎟️</span>
+                <div className="flex-1">
+                  <p className="text-cream text-sm font-semibold">z.B. Cumulus-Bons</p>
+                  <p className="text-cream/40 text-xs mt-0.5">Wird anteilig abgezogen — gebucht wird, was ihr bezahlt habt</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-cream/45 text-sm">−</span>
+                  <input value={discount} onChange={e => setDiscount(e.target.value)}
+                    inputMode="decimal" placeholder="0.00"
+                    className="w-20 bg-cream/10 border border-cream/20 rounded-xl px-2 py-2 text-sm text-cream text-right tabular-nums focus:outline-none focus:border-cream/40" />
+                </div>
+              </div>
+
               <p className="kicker text-cream/40 mb-2">Notiz</p>
               <textarea value={note} onChange={e => setNote(e.target.value)}
                 placeholder="z.B. Grosseinkauf vor den Ferien…"
@@ -481,8 +528,11 @@ export default function ScanPage() {
           {saveError && <p className="text-[#e89890] text-xs text-center mb-2">{saveError}</p>}
           <div className="max-w-lg mx-auto flex items-center gap-4">
             <div className="flex-1">
-              <p className="amount text-cream text-lg">CHF {activeTotal.toFixed(2)}</p>
-              <p className="text-cream/45 text-xs">{activeItems.length} Posten ausgewählt</p>
+              <p className="amount text-cream text-lg">CHF {effectiveTotal.toFixed(2)}</p>
+              <p className="text-cream/45 text-xs">
+                {activeItems.length} Posten
+                {discountValue > 0 && <span> · {formatCHF(activeTotal)} − {formatCHF(discountValue)} Rabatt</span>}
+              </p>
             </div>
             <button onClick={() => handleSave()} disabled={saving || activeItems.length === 0}
               className="bg-cream text-ink font-black px-6 py-3 rounded-2xl flex items-center gap-2 disabled:opacity-30 active:scale-95 transition-all">

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
-import { asDateOnlyString, asNonEmptyString, asPositiveNumber } from "@/lib/api-validation"
+import { asDateOnlyString, asNonEmptyString, asNonNegativeNumber, asPositiveNumber } from "@/lib/api-validation"
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024
 const ALLOWED_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"])
@@ -81,7 +81,8 @@ Antworte NUR mit validem JSON, kein anderer Text:
   "reference": "Referenz-/Rechnungsnummer oder null",
   "items": [
     { "name": "Beschreibung", "amount": 12.50, "category": "Kategoriename" }
-  ]
+  ],
+  "discounts": 0
 }
 
 Verfügbare Kategorien: ${categoryNames}
@@ -97,17 +98,25 @@ Datum (sorgfältig vom Beleg ablesen):
 - reference: Rechnungsnummer, Zahlungsreferenz, ESR-Nummer etc., sonst null
 
 Posten — NUR echte Käufe erfassen:
-- Beträge: immer positiv, 2 Dezimalstellen, exakt wie aufgedruckt
+- amount = der Wert der TOTAL-Spalte der Zeile (die letzte Betragsspalte, ganz rechts vor der MwSt-Kennziffer) — NICHT die Preis-Spalte. Beispiel: «Crevettenspiess 1 29.50 5.00 1» → amount 5.00 (Aktionspreis), nicht 29.50.
+- Bei Menge > 1 steht der Zeilen-Total bereits multipliziert — genau diesen Wert nehmen.
+- Beträge: immer positiv, 2 Dezimalstellen
 - Bei Rechnungen: ein Posten mit dem Gesamtbetrag reicht, ausser Einzelpositionen sind klar aufgeführt
 - Bei Quittungen: jeden gekauften Artikel einzeln erfassen
 - Diese Zeilen sind KEINE Käufe und werden NIE als Posten erfasst:
-  * Treueprogramm-Zeilen: Cumulus, Cumulus-Punkte, Supercard, Superpunkte, Bonuspunkte, Punktestand
-  * Summenzeilen: TOTAL, Zwischensumme, Summe
-  * Zahlungszeilen: Bar, Karte, Maestro, TWINT, Gegeben, Rückgeld
+  * Punkte-Infozeilen: Cumulus-Bonuspunkte, Bonus-Coupon, Punktestand, Superpunkte
+  * Summenzeilen: TOTAL, Zwischentotal, Zwischensumme
+  * Zahlungszeilen: Bar, Karte, Visa, Maestro, TWINT, Gegeben, Rückgeld, Total in EUR
   * MwSt-/Steuer-Tabellen, Rundungszeilen, «Sie sparen»-Zeilen
   * Pfand-Rückgaben und andere negative Beträge
-- Ist ein Rabatt direkt einem Artikel zugeordnet, erfasse den Artikel mit dem effektiv bezahlten Preis
-- Wähle die passendste verfügbare Kategorie (z.B. Putzmittel/Spülsalz → Haushalt)`,
+
+discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag):
+- CUMULUS-BON-Zeilen mit Minusbetrag (z.B. «CUMULUS BON 10.- ... 10.00-») sind eingelöste GUTSCHEINE, keine Punkte: ihre Beträge NICHT als Posten erfassen, sondern aufsummieren und als "discounts" zurückgeben (positive Zahl).
+- Ebenso andere belegweite Gutschein-/Rabatt-Abzüge zwischen Zwischentotal und Total.
+- Kontrolle: Summe der items minus discounts ≈ aufgedrucktes Total CHF. Wenn nicht, prüfe nochmal, ob du Abzüge übersehen oder die falsche Spalte gelesen hast.
+- Keine belegweiten Abzüge vorhanden → "discounts": 0
+
+- Wähle die passendste verfügbare Kategorie (z.B. Putzmittel/Spülsalz → Haushalt, Körperpflege → Gesundheit)`,
           },
         ],
       }],
@@ -135,6 +144,7 @@ Posten — NUR echte Käufe erfassen:
     dueDateRaw?: string | null
     reference: string | null
     items: { name: string; amount: number; category: string }[]
+    discounts?: number
   }
   try {
     parsed = JSON.parse(jsonMatch[0])
@@ -182,5 +192,8 @@ Posten — NUR echte Käufe erfassen:
     dueDate: parsed.dueDate ?? null,
     reference: parsed.reference ?? null,
     items: itemsWithIds,
+    // Belegweite Gutscheine/Rabatte (z.B. Cumulus-Bons) — Client verteilt
+    // sie anteilig auf die Posten, damit der echte Zahlbetrag gebucht wird
+    discounts: Math.round((asNonNegativeNumber(parsed.discounts) ?? 0) * 100) / 100,
   })
 }
