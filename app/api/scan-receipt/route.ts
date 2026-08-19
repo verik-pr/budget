@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
             type: "text",
             text: `Analysiere dieses Zahlungsdokument (Quittung, Rechnung, Beleg, etc.) und extrahiere alle relevanten Informationen.
 
-Antworte NUR mit validem JSON, kein anderer Text:
+Antworte NUR mit validem JSON. Beginne deine Antwort SOFORT mit { — kein Text davor, keine Erklärung danach:
 {
   "documentType": "receipt" oder "invoice",
   "merchant": "Name des Ausstellers oder Unbekannt",
@@ -120,10 +120,10 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
 - Wähle die passendste verfügbare Kategorie (z.B. Putzmittel/Spülsalz → Haushalt, Körperpflege → Gesundheit)`,
           },
         ],
-      },
-      // Prefill: die Antwort beginnt direkt im JSON — verhindert seitenlange
-      // Vorab-Prosa (hat in Prod trotz 8k-Limit zum Abschneiden geführt)
-      { role: "assistant", content: "{" }],
+      }],
+      // KEIN Assistant-Prefill: claude-sonnet-5 lehnt Prefill mit 400 ab.
+      // Gegen Vorab-Prosa wirken die Prompt-Anweisung («SOFORT mit {») und
+      // das zweistufige Parsen unten; gegen Abschneiden das 16k-Limit.
     })
     if (String(response.stop_reason) === "refusal") {
       return NextResponse.json({
@@ -136,6 +136,7 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
     if (!content) console.error("scan-receipt: KI-Antwort ohne Text", { stopReason: response.stop_reason })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unbekannter Fehler"
+    console.error("scan-receipt: API-Fehler", msg.slice(0, 500))
     return NextResponse.json({ error: `KI-Fehler: ${msg.slice(0, 120)}` }, { status: 502 })
   }
 
@@ -150,11 +151,11 @@ discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag)
     items: { name: string; amount: number; category: string }[]
     discounts?: number
   }
-  // Zweistufig: erst mit vorangestelltem Prefill-"{" parsen (Normalfall),
-  // sonst die rohe Antwort (falls das Modell das "{" selbst wiederholt oder
-  // doch Prosa vor dem JSON schreibt)
+  // Zweistufig: erst die rohe Antwort parsen (Normalfall — beginnt mit «{»,
+  // Regex überspringt allfällige Prosa davor), als Fallback mit vorangestellter
+  // Klammer (falls das Modell die öffnende Klammer weglässt)
   let parsed: ParsedScan | null = null
-  for (const candidate of ["{" + raw, raw]) {
+  for (const candidate of [raw, "{" + raw]) {
     const match = candidate.match(/\{[\s\S]*\}/)
     if (!match) continue
     try {
