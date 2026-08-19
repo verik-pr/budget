@@ -8,6 +8,7 @@ import { giftcardFactor } from "@/lib/utils"
 
 type SaveItem = {
   amount: unknown
+  faceAmount: unknown
   categoryId: unknown
   description: unknown
   contributor: unknown
@@ -52,7 +53,9 @@ export async function POST(req: Request) {
   // Duplikat-Check: gleicher Tag + gleicher Händler + gleiche Summe → 409,
   // ausser der Client bestätigt mit force:true (z.B. beim Stapel-Erfassen alter Belege)
   if (body.force !== true) {
-    const incomingTotal = items.reduce((s, item) => s + (asPositiveNumber(item.amount) ?? 0), 0)
+    // Vergleich auf Beleg-Beträgen (faceAmount): bei Rabatt-Verteilung und
+    // Geschenkkarten weicht der gebuchte amount vom aufgedruckten Betrag ab
+    const incomingTotal = items.reduce((s, item) => s + (asPositiveNumber(item.faceAmount) ?? asPositiveNumber(item.amount) ?? 0), 0)
     const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0)
     const dayEnd = new Date(dayStart.getTime() + 86400000)
     const sameDay = await prisma.transaction.findMany({
@@ -98,6 +101,7 @@ export async function POST(req: Request) {
     if (sharedWith && (sharedRatio === null || sharedRatio <= 0 || sharedRatio > 1)) return null
     return {
       amount,
+      faceAmount: asPositiveNumber(item.faceAmount),
       categoryId,
       description: asNullableString(item.description),
       contributor: asNullableString(item.contributor),
@@ -111,11 +115,17 @@ export async function POST(req: Request) {
 
   const transactions = await prisma.$transaction(prepared.map(item => {
     const safeItem = item!
+    // Beleg-Betrag: bei Rabatt-Verteilung liefert der Client den Original-
+    // Betrag als faceAmount; bei Geschenkkarten ist der gesendete amount
+    // bereits der Beleg-Betrag. Gespeichert nur, wenn er vom gebuchten
+    // (effektiven) Betrag abweicht — dann bleibt das Original sichtbar.
+    const effective = isGiftcard ? Math.round(safeItem.amount * factor * 100) / 100 : safeItem.amount
+    const face = safeItem.faceAmount ?? (isGiftcard ? safeItem.amount : null)
     return prisma.transaction.create({
       data: {
         date,
-        amount: isGiftcard ? Math.round(safeItem.amount * factor * 100) / 100 : safeItem.amount,
-        ...(isGiftcard ? { faceAmount: safeItem.amount } : {}),
+        amount: effective,
+        ...(face !== null && Math.abs(face - effective) >= 0.005 ? { faceAmount: face } : {}),
         description: safeItem.description,
         categoryId: safeItem.categoryId,
         userId: currentUser.id,

@@ -32,6 +32,9 @@ export default function EditTransactionPage() {
   const [isPrivate, setIsPrivate] = useState(false)
   const [accountId, setAccountId] = useState("")
   const [txUserName, setTxUserName] = useState("")
+  // Beim Scan anteilig verteilter Gutschein-Rabatt (amount/faceAmount, ohne
+  // Geschenkkarten-Faktor) — bleibt beim Bearbeiten erhalten (Server-Logik)
+  const [receiptDiscountRatio, setReceiptDiscountRatio] = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -78,6 +81,9 @@ export default function EditTransactionPage() {
       // Bei Geschenkkarten-Buchungen wird der Beleg-Betrag bearbeitet,
       // nicht der effektive Preis — der Server rechnet beim Speichern um
       setAmount(String(tx.faceAmount ?? tx.amount))
+      const txAccount = (accs as { id: string; type: string; giftcardFaceValue?: number | null; giftcardPrice?: number | null }[]).find(a => a.id === tx.accountId)
+      const faceDenom = (tx.faceAmount ?? 0) * giftcardFactor(txAccount)
+      setReceiptDiscountRatio(tx.faceAmount != null && faceDenom > 0 ? tx.amount / faceDenom : 1)
       setCategoryId(tx.categoryId)
       setDescription(tx.description ?? "")
       setDate(new Date(tx.date).toISOString().split("T")[0])
@@ -189,6 +195,13 @@ export default function EditTransactionPage() {
             onChange={e => setAmount(e.target.value)}
             className="amount w-full bg-transparent text-ink text-[52px] leading-none focus:outline-none" />
           <div className="h-px bg-rule mt-3" />
+          {receiptDiscountRatio < 0.995 && (
+            <p className="text-muted text-xs mt-2 italic font-serif">
+              🧾 Beleg-Betrag — nach Gutschein-Rabatt {previewAmount !== null
+                ? `werden ${formatCHF(Math.round(previewAmount * receiptDiscountRatio * gcFactor * 100) / 100)} gebucht`
+                : "wird anteilig weniger gebucht"}.
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

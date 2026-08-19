@@ -129,7 +129,7 @@ function ReceiptCard({
               {formatDate(group.date)} · {group.items.length} Posten
               {(() => {
                 const faceTotal = group.items.reduce((s, i) => s + (i.faceAmount ?? i.amount), 0)
-                return Math.abs(faceTotal - group.total) >= 0.005 ? <span> · 🎁 Beleg {formatCHF(faceTotal)}</span> : null
+                return Math.abs(faceTotal - group.total) >= 0.005 ? <span> · 🧾 Beleg {formatCHF(faceTotal)}</span> : null
               })()}
             </p>
           </div>
@@ -158,9 +158,14 @@ function ReceiptCard({
                 <p className="text-xs font-semibold text-inkSoft truncate">{tx.description || tx.category.name}</p>
                 <p className="text-xs text-muted">{tx.category.name} · {getContributorLabel(tx.contributor, tx.user.name)}</p>
               </div>
-              <p className="amount text-[13px] text-inkSoft flex-shrink-0">
-                {tx.category.type === "income" ? "+" : "−"}{formatCHF(tx.amount)}
-              </p>
+              <div className="flex-shrink-0 text-right">
+                <p className="amount text-[13px] text-inkSoft">
+                  {tx.category.type === "income" ? "+" : "−"}{formatCHF(tx.amount)}
+                </p>
+                {tx.faceAmount != null && Math.abs(tx.faceAmount - tx.amount) >= 0.005 && (
+                  <p className="text-[10px] text-faint line-through">{formatCHF(tx.faceAmount)}</p>
+                )}
+              </div>
               {onDelete && (
                 <div className="flex gap-1 ml-1">
                   <Link href={`/transactions/${tx.id}/edit`} className="text-faint hover:text-pine p-1">
@@ -222,7 +227,7 @@ export function TransactionList({
                 <p className="text-xs text-muted mt-0.5 truncate">
                   {formatDate(t.date)} · {getContributorLabel(t.contributor, t.user.name)}
                   {t.account && <span style={{ color: t.account.color }}> · {t.account.icon} {t.account.name}</span>}
-                  {t.faceAmount != null && Math.abs(t.faceAmount - t.amount) >= 0.005 && <span> · 🎁 Beleg {formatCHF(t.faceAmount)}</span>}
+                  {t.faceAmount != null && Math.abs(t.faceAmount - t.amount) >= 0.005 && <span> · 🧾 Beleg {formatCHF(t.faceAmount)}</span>}
                 </p>
                 {t.note && <p className="text-xs text-muted italic mt-0.5 truncate">📝 {t.note}</p>}
               </div>

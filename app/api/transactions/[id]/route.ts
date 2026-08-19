@@ -55,30 +55,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   // Für die Geschenkkarten-Umrechnung zählt das Konto NACH dem Update
   const targetAccountId = parsedAccountId !== undefined ? parsedAccountId : existing.accountId
-  const [category, account, targetAccount] = await Promise.all([
+  const [category, account, targetAccount, oldAccount] = await Promise.all([
     parsedCategoryId ? prisma.category.findUnique({ where: { id: parsedCategoryId } }) : Promise.resolve(null),
     parsedAccountId ? prisma.account.findUnique({ where: { id: parsedAccountId } }) : Promise.resolve(null),
     targetAccountId ? prisma.account.findUnique({ where: { id: targetAccountId } }) : Promise.resolve(null),
+    existing.accountId ? prisma.account.findUnique({ where: { id: existing.accountId } }) : Promise.resolve(null),
   ])
   if (categoryId !== undefined && !category) return NextResponse.json({ error: "Kategorie nicht gefunden" }, { status: 400 })
   if (parsedAccountId && !account) return NextResponse.json({ error: "Konto nicht gefunden" }, { status: 400 })
 
-  // Geschenkkarten: Client bearbeitet immer den Beleg-Betrag (nominal);
-  // gespeichert wird der effektive Preis (× Rabattfaktor). Auch ein reiner
-  // Konto-Wechsel rechnet den Betrag entsprechend um bzw. zurück.
+  // Geschenkkarten & Beleg-Rabatte: Client bearbeitet immer den Beleg-Betrag
+  // (nominal); gespeichert wird der effektive Preis. Ein beim Scan anteilig
+  // verteilter Gutschein-Rabatt steckt im Verhältnis amount/faceAmount
+  // (bereinigt um den Kartenfaktor des BISHERIGEN Kontos) und bleibt beim
+  // Bearbeiten und beim Konto-Wechsel erhalten.
   const isGiftcard = targetAccount?.type === "giftcard"
   const factor = giftcardFactor(targetAccount)
+  const oldDenom = (existing.faceAmount ?? 0) * giftcardFactor(oldAccount)
+  const discountRatio = existing.faceAmount != null && oldDenom > 0 ? existing.amount / oldDenom : 1
   const amountTouched = (parsedAmount !== undefined && parsedAmount !== null) || parsedAccountId !== undefined
   const nominal = parsedAmount !== undefined && parsedAmount !== null
     ? parsedAmount
     : existing.faceAmount ?? existing.amount
+  const effective = Math.round(nominal * discountRatio * factor * 100) / 100
 
   const transaction = await prisma.transaction.update({
     where: { id },
     data: {
       ...(amountTouched && {
-        amount: isGiftcard ? Math.round(nominal * factor * 100) / 100 : nominal,
-        faceAmount: isGiftcard ? nominal : null,
+        amount: effective,
+        faceAmount: isGiftcard || Math.abs(effective - nominal) >= 0.005 ? nominal : null,
       }),
       ...(parsedCategoryId ? { categoryId: parsedCategoryId } : {}),
       ...(description !== undefined && { description: asNullableString(description) }),

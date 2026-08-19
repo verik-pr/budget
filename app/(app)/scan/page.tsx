@@ -48,6 +48,7 @@ export default function ScanPage() {
   }[]>([])
   const [note, setNote] = useState("")
   const [date, setDate] = useState("")
+  const [merchant, setMerchant] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [saveError, setSaveError] = useState("")
@@ -107,6 +108,7 @@ export default function ScanPage() {
       setResult(data)
       setItems(data.items.map(item => ({ ...item, excluded: false, contributor: "", sharedWith: null, sharedRatio: null })))
       setDate(/^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "") ? data.date : todayLocalISO())
+      setMerchant(data.merchant ?? "")
       setDiscount(data.discounts && data.discounts > 0 ? data.discounts.toFixed(2) : "")
       setLastSaved(null)
       setPhase("review")
@@ -160,11 +162,12 @@ export default function ScanPage() {
   // Belegweite Gutscheine (Cumulus-Bons etc.) anteilig auf die Posten
   // verteilen, damit die Summe dem echten Zahlbetrag entspricht.
   // Rundungsdifferenz landet auf dem grössten Posten; Minimum 1 Rappen.
-  function applyDiscount(toSave: ScannedItem[], discountVal: number) {
+  // Der Original-Betrag vom Beleg wandert in faceAmount und bleibt sichtbar.
+  function applyDiscount(toSave: ScannedItem[], discountVal: number): (ScannedItem & { faceAmount?: number })[] {
     const total = toSave.reduce((s, i) => s + i.amount, 0)
     if (discountVal <= 0 || total <= 0) return toSave.map(i => ({ ...i }))
     const factor = Math.max(0, total - discountVal) / total
-    const scaled = toSave.map(i => ({ ...i, amount: Math.max(0.01, Math.round(i.amount * factor * 100) / 100) }))
+    const scaled = toSave.map(i => ({ ...i, faceAmount: i.amount, amount: Math.max(0.01, Math.round(i.amount * factor * 100) / 100) }))
     const targetCents = Math.round(Math.max(0.01 * toSave.length, total - discountVal) * 100)
     const sumCents = scaled.reduce((s, i) => s + Math.round(i.amount * 100), 0)
     const diff = targetCents - sumCents
@@ -198,12 +201,13 @@ export default function ScanPage() {
           accountId: accountId || null,
           note: note || null,
           force,
-          receiptMerchant: result?.merchant ?? null,
+          receiptMerchant: merchant.trim() || result?.merchant || null,
           items: discounted.map(item => ({
             amount: item.amount,
             categoryId: item.categoryId,
             description: item.name,
             contributor: payer.value,
+            ...(item.faceAmount != null ? { faceAmount: item.faceAmount } : {}),
             ...(item.sharedWith ? { sharedWith: partner.value, sharedRatio: item.sharedRatio } : {}),
           })),
         }),
@@ -225,12 +229,13 @@ export default function ScanPage() {
       }
       // Erfolg: zurück zum Scannen für die nächste Quittung (Stapel-Erfassung)
       const total = discounted.reduce((s, i) => s + i.amount, 0)
-      setLastSaved({ merchant: result?.merchant ?? "Beleg", total })
+      setLastSaved({ merchant: merchant.trim() || result?.merchant || "Beleg", total })
       setSavedCount(c => c + 1)
       setResult(null)
       setItems([])
       setNote("")
       setDate("")
+      setMerchant("")
       setDiscount("")
       setSaving(false)
       setPhase("capture")
@@ -283,7 +288,7 @@ export default function ScanPage() {
               <div className="flex items-center gap-2 mt-0.5">
                 {isInvoice ? <FileText className="w-3.5 h-3.5 text-blue-400" /> : <Receipt className="w-3.5 h-3.5 text-[#7fc89e]" />}
                 <p className="text-cream text-sm font-bold">
-                  {result.merchant} · {result.date}
+                  {merchant.trim() || result.merchant} · {result.date}
                   {result.dueDate && <span className="text-orange-400 ml-2">fällig {result.dueDate}</span>}
                 </p>
               </div>
@@ -348,6 +353,14 @@ export default function ScanPage() {
                 </div>
               </div>
             )}
+
+            <div>
+              <p className="kicker text-cream/40 mb-3">Titel</p>
+              <input value={merchant} onChange={e => setMerchant(e.target.value)}
+                placeholder="z.B. Migros"
+                className="w-full bg-cream/10 border border-cream/15 rounded-2xl px-4 py-2.5 text-sm font-bold text-cream placeholder:text-cream/25 focus:outline-none focus:border-cream/40" />
+              <p className="text-cream/35 text-xs mt-2 italic font-serif">So heisst die Quittung nachher in der Liste.</p>
+            </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
