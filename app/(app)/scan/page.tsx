@@ -27,6 +27,9 @@ type ScanResult = {
   reference: string | null
   items: ScannedItem[]
   discounts?: number
+  currency?: string
+  exchangeRate?: number | null
+  originalTotal?: number
 }
 
 type Category = { id: string; name: string; icon: string; type: string }
@@ -110,6 +113,10 @@ export default function ScanPage() {
       setDate(/^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "") ? data.date : todayLocalISO())
       setMerchant(data.merchant ?? "")
       setDiscount(data.discounts && data.discounts > 0 ? data.discounts.toFixed(2) : "")
+      // EUR-Beleg: Kurs-Info in die Notiz, damit sie an der Buchung bleibt
+      if (data.currency === "EUR" && data.exchangeRate && data.originalTotal) {
+        setNote(`€ ${data.originalTotal.toFixed(2)} × EZB-Kurs ${data.exchangeRate} (${data.date})`)
+      }
       setLastSaved(null)
       setPhase("review")
     } catch (err) {
@@ -350,6 +357,18 @@ export default function ScanPage() {
                   <p className="text-blue-300 text-sm font-semibold">Rechnung erkannt</p>
                   {result?.dueDate && <p className="text-blue-400/70 text-xs mt-0.5">Zahlungsfrist: <span className="text-orange-400 font-semibold">{result.dueDate}</span></p>}
                   {result?.reference && <p className="text-blue-400/70 text-xs">Referenz: {result.reference}</p>}
+                </div>
+              </div>
+            )}
+
+            {result?.currency === "EUR" && result.exchangeRate != null && (
+              <div className="bg-blue-950/40 border border-blue-900/50 rounded-2xl px-4 py-3 flex items-start gap-3">
+                <span className="text-base mt-0.5 flex-shrink-0">💶</span>
+                <div>
+                  <p className="text-blue-300 text-sm font-semibold">Euro-Beleg — in CHF umgerechnet</p>
+                  <p className="text-blue-400/70 text-xs mt-0.5">
+                    € {result.originalTotal?.toFixed(2)} × {result.exchangeRate} (EZB-Kurs vom {result.date})
+                  </p>
                 </div>
               </div>
             )}

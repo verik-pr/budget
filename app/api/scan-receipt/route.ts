@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
 Antworte NUR mit validem JSON. Beginne deine Antwort SOFORT mit { — kein Text davor, keine Erklärung danach:
 {
   "documentType": "receipt" oder "invoice",
+  "currency": "CHF" oder "EUR",
   "merchant": "Name des Ausstellers oder Unbekannt",
   "date": "YYYY-MM-DD",
   "dateRaw": "Ausstellungsdatum EXAKT wie auf dem Dokument gedruckt, z.B. 02.05.2026, oder null",
@@ -91,6 +92,7 @@ Verfügbare Kategorien: ${categoryNames}
 
 Regeln:
 - documentType: "receipt" für Kassenbelege/Quittungen, "invoice" für Rechnungen/Bills
+- currency: Belegwährung ("CHF" für Schweizer Belege, "EUR" z.B. für deutsche — steht meist beim Total oder als €/EUR-Spalte). Alle Beträge IMMER in der Original-Belegwährung zurückgeben, NICHT umrechnen.
 
 Datum (sorgfältig vom Beleg ablesen):
 - dateRaw: das aufgedruckte Kauf-/Ausstellungsdatum EXAKT abschreiben. Auf Schweizer Kassenzetteln steht es meist oben oder unten beim Zeitstempel (z.B. «04.08.26 17:32»).
@@ -111,7 +113,7 @@ Posten — NUR echte Käufe erfassen:
   * Zahlungszeilen: Bar, Karte, Visa, Maestro, TWINT, Gegeben, Rückgeld, Total in EUR
   * MwSt-/Steuer-Tabellen, Rundungszeilen, «Sie sparen»-Zeilen
   * Mengen-/Stückpreis-Zusatzzeilen (z.B. «2 x  2.59» unter/neben einem Artikel) — der Zeilen-Total des Artikels zählt
-  * Pfand-Rückgaben und andere negative Beträge
+  * Pfand-RÜCKGABEN und andere negative Beträge — Pfand-KÄUFE mit positivem Betrag (z.B. «PFAND 0.25+») dagegen SIND Posten (sie gehören zum Zahlbetrag)
 
 discounts — belegweite Gutscheine/Rabatte (WICHTIG für den echten Zahlbetrag):
 - CUMULUS-BON-Zeilen mit Minusbetrag (z.B. «CUMULUS BON 10.- ... 10.00-») sind eingelöste GUTSCHEINE, keine Punkte: ihre Beträge NICHT als Posten erfassen, sondern aufsummieren und als "discounts" zurückgeben (positive Zahl).
@@ -149,6 +151,7 @@ Kontrolle: Summe der items − discounts + rounding ≈ bezahltes Total CHF. Wen
 
   type ParsedScan = {
     documentType: string
+    currency?: string
     merchant: string
     date: string
     dateRaw?: string | null
@@ -219,15 +222,43 @@ Kontrolle: Summe der items − discounts + rounding ≈ bezahltes Total CHF. Wen
   // bezahlt wurde. Eine Aufrundung (selten, max +2 Rp) wird bewusst ignoriert.
   const rounding = Math.max(-0.1, Math.min(0.1, asFiniteNumber(parsed.rounding) ?? 0))
 
+  // EUR-Belege (z.B. deutsche Läden) in CHF umrechnen — EZB-Referenzkurs vom
+  // Belegdatum (Wochenende/Feiertag: letzter Handelstag). Fehler → klare
+  // Meldung statt stillem Falschbuchen in der falschen Währung.
+  const currency = parsed.currency === "EUR" ? "EUR" : "CHF"
+  let exchangeRate: number | null = null
+  if (currency === "EUR") {
+    try {
+      const rateRes = await fetch(`https://api.frankfurter.dev/v1/${parsed.date}?base=EUR&symbols=CHF`, {
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!rateRes.ok) throw new Error(`HTTP ${rateRes.status}`)
+      const rateData = await rateRes.json()
+      exchangeRate = asPositiveNumber(rateData?.rates?.CHF)
+      if (!exchangeRate) throw new Error("Kurs fehlt in der Antwort")
+    } catch (err) {
+      console.error("scan-receipt: Wechselkurs-Fehler", err instanceof Error ? err.message : err)
+      return NextResponse.json({
+        error: "EUR-Beleg erkannt, aber der Wechselkurs konnte nicht geladen werden — bitte nochmal versuchen",
+      }, { status: 502 })
+    }
+  }
+  const toCHF = (v: number) => Math.round(v * (exchangeRate ?? 1) * 100) / 100
+  const originalTotal = itemsWithIds.reduce((s, i) => s + i.amount, 0)
+
   return NextResponse.json({
     documentType: parsed.documentType,
     merchant: parsed.merchant,
     date: parsed.date,
     dueDate: parsed.dueDate ?? null,
     reference: parsed.reference ?? null,
-    items: itemsWithIds,
+    items: itemsWithIds.map(item => ({ ...item, amount: Math.max(0.01, toCHF(item.amount)) })),
     // Belegweite Gutscheine/Rabatte (z.B. Cumulus-Bons) + Abrundung — Client
     // verteilt sie anteilig auf die Posten, damit der echte Zahlbetrag gebucht wird
-    discounts: Math.round(((asNonNegativeNumber(parsed.discounts) ?? 0) + Math.max(0, -rounding)) * 100) / 100,
+    discounts: Math.max(0, toCHF((asNonNegativeNumber(parsed.discounts) ?? 0) + Math.max(0, -rounding))),
+    currency,
+    exchangeRate,
+    // Original-Summe in Belegwährung (für den Hinweis im Review bei EUR)
+    originalTotal: Math.round(originalTotal * 100) / 100,
   })
 }
