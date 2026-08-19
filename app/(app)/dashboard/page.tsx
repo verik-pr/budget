@@ -8,19 +8,37 @@ import { TransactionList } from "@/components/transaction-list"
 import { ForecastCard } from "@/components/forecast-card"
 import { applyDueRecurringTransactions } from "@/lib/recurring"
 import Link from "next/link"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ konto?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ konto?: string; periode?: string }> }) {
   const session = await getServerSession(authOptions)
   if (session) await applyDueRecurringTransactions()
-  const { konto } = await searchParams
+  const { konto, periode } = await searchParams
 
   const now = new Date()
-  const periodStart = now.getDate() >= 24
-    ? new Date(now.getFullYear(), now.getMonth(), 24)
-    : new Date(now.getFullYear(), now.getMonth() - 1, 24)
-  const start = periodStart
-  const end = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 24)
-  const lastStart = new Date(periodStart.getFullYear(), periodStart.getMonth() - 1, 24)
+  // Perioden laufen 24.–23.; identifiziert über den Monat, in dem sie enden.
+  // ?periode=YYYY-MM blättert zurück (z.B. abgeschlossener Monat), Zukunft
+  // wird auf die aktuelle Periode gedeckelt.
+  const currentEndMonth = now.getDate() >= 24
+    ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    : new Date(now.getFullYear(), now.getMonth(), 1)
+  let endMonth = currentEndMonth
+  const m = periode?.match(/^(\d{4})-(\d{2})$/)
+  if (m) {
+    const parsed = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, 1)
+    if (!Number.isNaN(parsed.getTime()) && parsed < currentEndMonth) endMonth = parsed
+  }
+  const isCurrentPeriod = endMonth.getTime() === currentEndMonth.getTime()
+  const start = new Date(endMonth.getFullYear(), endMonth.getMonth() - 1, 24)
+  const end = new Date(endMonth.getFullYear(), endMonth.getMonth(), 24)
+  const lastStart = new Date(endMonth.getFullYear(), endMonth.getMonth() - 2, 24)
+
+  const periodHref = (d: Date) => {
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+    return `/dashboard?periode=${key}${konto ? `&konto=${konto}` : ""}`
+  }
+  const prevHref = periodHref(new Date(endMonth.getFullYear(), endMonth.getMonth() - 1, 1))
+  const nextHref = periodHref(new Date(endMonth.getFullYear(), endMonth.getMonth() + 1, 1))
 
   const allAccounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } })
 
@@ -58,7 +76,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }),
   ])
 
-  const upcoming = await getUpcomingPayments(now)
+  // Radar & Prognose sind zukunftsbezogen — nur in der aktuellen Periode
+  const upcoming = isCurrentPeriod ? await getUpcomingPayments(now) : []
   const upcomingTotal = upcoming.reduce((s, u) => s + u.amount, 0)
 
   const income = transactions.filter(t => t.category.type === "income").reduce((s, t) => s + t.amount, 0)
@@ -87,9 +106,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <div className="max-w-lg mx-auto">
       {/* Header */}
       <div className="ink-panel px-6 pt-safe pb-10 rounded-b-[32px]">
-        <p className="kicker text-cream/40 mb-4">{monthLabel}</p>
+        <div className="flex items-center justify-between mb-4">
+          <Link href={prevHref} className="text-cream/40 hover:text-cream transition-colors -ml-1 p-1">
+            <ChevronLeft className="w-4 h-4" />
+          </Link>
+          <p className="kicker text-cream/40">
+            {monthLabel}
+            {!isCurrentPeriod && <span className="text-cream/25"> · abgeschlossen</span>}
+          </p>
+          {isCurrentPeriod ? (
+            <span className="w-6" />
+          ) : (
+            <Link href={nextHref} className="text-cream/40 hover:text-cream transition-colors -mr-1 p-1">
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          )}
+        </div>
 
-        <AccountSelector accounts={visibleAccounts} selected={selectedId} />
+        <AccountSelector accounts={visibleAccounts} selected={selectedId} periode={isCurrentPeriod ? undefined : periode} />
 
         <p className="amount text-cream text-[56px] leading-none">
           {formatCHF(balance)}
@@ -174,19 +208,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         )}
 
-        <div className="px-6 pt-6">
-          <ForecastCard accountId={selectedId ?? null} />
-        </div>
+        {isCurrentPeriod && (
+          <div className="px-6 pt-6">
+            <ForecastCard accountId={selectedId ?? null} />
+          </div>
+        )}
 
         {/* Transactions */}
         <div className="px-6 pt-6">
           <div className="flex items-baseline justify-between mb-4">
-            <p className="kicker text-muted">Letzte Buchungen</p>
+            <p className="kicker text-muted">{isCurrentPeriod ? "Letzte Buchungen" : "Buchungen dieser Periode"}</p>
             <Link href="/transactions" className="text-xs font-bold text-pine">Alle</Link>
           </div>
 
           {transactions.length === 0 ? (
-            <p className="text-muted text-sm text-center py-12">Noch keine Buchungen diese Periode</p>
+            <p className="text-muted text-sm text-center py-12">Keine Buchungen in dieser Periode</p>
           ) : (
             <TransactionList transactions={transactions.slice(0, 12).map(t => maskPrivateTx(t, session?.user?.id ?? ""))} />
           )}

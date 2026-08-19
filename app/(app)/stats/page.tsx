@@ -26,6 +26,7 @@ type PersonStat = { label: string; color: string; total: number }
 type Provision = { id: string; name: string; icon: string; totalAmount: number; frequencyMonths: number; nextDueDate: string }
 type DebtTx = {
   id: string
+  date: string
   amount: number
   contributor: string | null
   sharedWith: string | null
@@ -301,8 +302,13 @@ export default function StatsPage() {
     }, {} as Record<string, CategoryStat>)
   ).sort((a, b) => b.total - a.total)
 
-  // ── Gemeinsame Auslagen: kumuliert aus allen Split-Buchungen ──
-  const debtTxs = debtData?.transactions ?? []
+  // ── Gemeinsame Auslagen ──
+  // Saldo (debtData.net) bleibt kumuliert über alle Zeit; die Aufschlüsselung
+  // «Wer hat ausgelegt» / «gemeinsam ausgegeben» folgt der gewählten Periode.
+  const debtTxs = (debtData?.transactions ?? []).filter(t => {
+    const d = new Date(t.date)
+    return d >= periodStart && d < periodEnd
+  })
   const byPerson: PersonStat[] = Object.values(
     debtTxs.reduce((acc, t) => {
       const payer = t.contributor
@@ -339,7 +345,7 @@ export default function StatsPage() {
     <PullToRefresh onRefresh={refresh}>
     <div className="max-w-lg mx-auto">
       <div className="ink-panel px-6 pt-safe pb-4 sticky top-0 z-10 rounded-b-[28px]">
-        {(tab === "expense" || tab === "income") && (
+        {(tab === "expense" || tab === "income" || tab === "gemeinsam") && (
           <div className="flex items-center justify-between mb-3">
             <button onClick={prevPeriod} className="text-cream/50 hover:text-cream transition-colors">
               <ChevronLeft className="w-5 h-5" />
@@ -561,8 +567,9 @@ export default function StatsPage() {
                             {partnerOwes ? `${debtData.partnerLabel} schuldet dir` : `Du schuldest ${debtData.partnerLabel}`}
                           </p>
                           <p className="amount text-cream text-[42px]">{formatCHF(netAmount)}</p>
+                          <p className="text-cream/35 text-xs mt-2">über alle Zeit — unabhängig von der gewählten Periode</p>
                           {debtData.partnerOwesMe > 0 && debtData.iOwePartner > 0 && (
-                            <p className="text-cream/45 text-xs mt-2">
+                            <p className="text-cream/45 text-xs mt-1">
                               {debtData.partnerLabel} schuldet {formatCHF(debtData.partnerOwesMe)} · Du schuldest {formatCHF(debtData.iOwePartner)}
                             </p>
                           )}
@@ -607,7 +614,7 @@ export default function StatsPage() {
                   </div>
                   {bySharedCategory.length === 0 ? (
                     <p className="text-muted text-sm text-center py-12">
-                      Noch keine geteilten Ausgaben.<br />Scanne eine Quittung und wähle 50/50 oder Nur {debtData.partnerLabel}.
+                      Keine geteilten Ausgaben in dieser Periode.<br />Blättere oben zurück oder scanne eine Quittung und wähle 50/50.
                     </p>
                   ) : (
                     <div className="bg-card border border-rule shadow-card rounded-3xl overflow-hidden">
